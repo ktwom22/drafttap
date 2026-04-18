@@ -4,8 +4,9 @@ from blueprints.routes_mlb import mlb_bp
 
 app = Flask(__name__)
 
-app.register_blueprint(nba_bp)
-app.register_blueprint(mlb_bp)
+# In run.py
+app.register_blueprint(nba_bp, url_prefix='/nba')
+app.register_blueprint(mlb_bp, url_prefix='/mlb')
 
 # CHANGE THIS:
 # @app.app.route('/robots.txt')
