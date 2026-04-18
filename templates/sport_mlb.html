@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLB Optimizer | {{ status }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <style>
+        :root {
+            --dk-navy: #001e44;
+            --dk-green: #2e7d32;
+            --dk-red: #d32f2f;
+            --slate: #2c3e50;
+            --light-border: #e0e0e0;
+            --text-primary: #000000;
+            --text-secondary: #444444;
+        }
+
+        body { background-color: #f0f2f5; color: var(--text-primary); font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+
+        /* --- SCROLLABLE PLAYER POOL --- */
+        .pool-wrapper { background: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid var(--light-border); max-height: 700px; overflow-y: auto; position: relative; }
+        .pool-table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 0; }
+        .pool-table thead th { position: sticky; top: 0; background-color: var(--dk-navy); color: #ffffff; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px; z-index: 10; padding: 12px 15px; border-bottom: 2px solid var(--dk-green); }
+        .pool-table td { padding: 10px 15px; border-bottom: 1px solid var(--light-border); vertical-align: middle; }
+
+        /* --- LOADING OVERLAY --- */
+        #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 30, 68, 0.98); z-index: 9999; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center; }
+
+        /* --- SIDEBAR & BUTTONS --- */
+        .sidebar-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid var(--light-border); position: sticky; top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .btn-optimize { background: linear-gradient(135deg, #1b5e20 0%, #003300 100%); color: white; border: none; padding: 16px; font-weight: 800; width: 100%; text-transform: uppercase; letter-spacing: 1.5px; border-radius: 8px; transition: 0.3s; }
+
+        /* --- STACKING MODULE STYLE --- */
+        .stack-box { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 10px; padding: 15px; margin-bottom: 20px; }
+
+        /* --- DATA UI --- */
+        .matchup-row { display: block; font-weight: 800; font-size: 0.85rem; }
+        .weather-row { display: block; color: #666; font-size: 0.75rem; font-weight: 600; }
+        .stat-heavy { display: block; color: var(--dk-navy); font-weight: 800; font-size: 0.9rem; }
+        .proj-pill { font-weight: 900; color: var(--dk-red); font-size: 1.15rem; }
+        .salary-text { font-family: 'Monaco', monospace; font-weight: 800; color: var(--dk-green); }
+    </style>
+</head>
+<body>
+
+<div id="loading-overlay">
+    <div class="spinner-grow text-success" role="status" style="width: 4rem; height: 4rem;"></div>
+    <h2 class="fw-bold text-uppercase mt-4" style="letter-spacing: 3px;">Crunching Stacks</h2>
+    <p class="lead text-light opacity-75">Optimizing for weather and correlation...</p>
+</div>
+
+<div class="container-fluid py-4 px-lg-5">
+    <div class="row">
+        <div class="col-lg-3">
+            <div class="sidebar-card">
+                <div class="d-flex align-items-center mb-4">
+                    <div style="background: var(--dk-green); width: 10px; height: 35px; border-radius: 5px; margin-right: 12px;"></div>
+                    <h4 class="m-0 fw-bold" style="color: var(--dk-navy);">MLB COMMAND</h4>
+                </div>
+
+                <form method="POST" id="opt-form">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Lineups</label>
+                            <input type="number" name="num_lineups" class="form-control fw-bold border-2" value="10">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Diversity</label>
+                            <input type="number" name="diversity" class="form-control fw-bold border-2" value="4">
+                        </div>
+                    </div>
+
+                    <div class="stack-box">
+                        <label class="form-label small fw-bold text-success text-uppercase mb-2">Stacking Logic</label>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted fw-bold">Target Team</label>
+                            <select name="stack_team" class="form-select fw-bold">
+                                <option value="None">Auto (Highest Proj)</option>
+                                {% for team in teams %}
+                                <option value="{{ team }}">{{ team }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label small text-muted fw-bold">Min Stack Size</label>
+                            <input type="number" name="min_stack" class="form-control fw-bold" value="5" min="0" max="5">
+                        </div>
+                    </div>
+
+                    <label class="form-label small fw-bold text-muted text-uppercase">Active Slate</label>
+                    <div class="bg-light p-2 rounded mb-4" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd;">
+                        {% for g in games %}
+                        <div class="form-check small mb-1">
+                            <input class="form-check-input" type="checkbox" name="games" value="{{ g.id }}" checked>
+                            <label class="form-check-label fw-bold">{{ g.display }} <span class="text-muted" style="font-size: 10px;">{{ g.time }}</span></label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <button type="submit" class="btn btn-optimize shadow w-100">GENERATE MLB LINEUPS</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-9 mt-4 mt-lg-0">
+            <div class="d-flex justify-content-between align-items-end mb-3">
+                <div>
+                    <h2 class="fw-bold m-0" style="letter-spacing: -1px;">Player Pool</h2>
+                    <p class="text-muted small fw-bold text-uppercase mb-0">{{ status }}</p>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-white border text-dark px-3 py-2 fw-bold shadow-sm">
+                        <span class="text-success">●</span> MLB SYSTEMS LIVE
+                    </span>
+                </div>
+            </div>
+
+            <div class="pool-wrapper">
+                <table class="pool-table">
+                    <thead>
+                        <tr>
+                            <th>PLAYER</th>
+                            <th>MATCHUP</th>
+                            <th>CORE METRICS</th>
+                            <th>PROJ</th>
+                            <th>SALARY</th>
+                            <th class="text-center">LOCK</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pool %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img src="{{ p.Logo }}" style="width:24px; height:24px;" class="me-2">
+                                    <div>
+                                        <div class="fw-bold">{{ p.Player }}</div>
+                                        <div class="small text-muted fw-bold">{{ p.POS }} · {{ p.Team }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="matchup-row">{{ p.Match_Display }}</span>
+                                <span class="weather-row">{{ p.W_Icon }} {{ p.Weather_Short }}</span>
+                            </td>
+                            <td>
+                                <span class="stat-heavy">{{ p.Primary_Stat }}</span>
+                                <span class="stat-light text-muted small fw-bold text-uppercase">{{ p.Secondary_Stat }}</span>
+                            </td>
+                            <td><span class="proj-pill">{{ p.Proj }}</span></td>
+                            <td><span class="salary-text">${{ "{:,.0f}".format(p.Salary) }}</span></td>
+                            <td class="text-center">
+                                <input type="checkbox" name="player_locks" value="{{ p.Player }}" class="form-check-input border-2">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if results %}
+            <div class="mt-5" id="results-target">
+                <h3 class="fw-bold mb-4" style="color: var(--dk-navy);">OPTIMIZED LINEUPS</h3>
+                <div class="row">
+                    {% for lineup in results %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow-sm border-0" style="border-top: 5px solid var(--dk-green) !important;">
+                            <div class="card-header bg-navy text-white fw-bold d-flex justify-content-between" style="background: #001e44;">
+                                <span>Lineup #{{ loop.index }}</span>
+                                <span>{{ lineup.total_projection }} FPTS</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm table-hover mb-0" style="font-size: 13px;">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th class="ps-3">POS</th>
+                                            <th>PLAYER</th>
+                                            <th>TEAM</th>
+                                            <th class="text-end pe-3">SALARY</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for pl in lineup.players %}
+                                        <tr>
+                                            <td class="ps-3 fw-bold text-muted">{{ pl.Slot }}</td>
+                                            <td class="fw-bold">{{ pl.Name }}</td>
+                                            <td>{{ pl.Team }}</td>
+                                            <td class="text-end pe-3 fw-bold text-success">${{ "{:,.0f}".format(pl.Salary) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot class="bg-dark text-white fw-bold">
+                                        <tr>
+                                            <td colspan="3" class="text-end ps-3">TOTAL</td>
+                                            <td class="text-end pe-3">${{ "{:,.0f}".format(lineup.total_salary) }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('opt-form').addEventListener('submit', function() {
+        document.getElementById('loading-overlay').style.display = 'flex';
+    });
+    window.onload = function() {
+        const res = document.getElementById('results-target');
+        if (res) res.scrollIntoView({ behavior: 'smooth' });
+    };
+</script>
+</body>
+</html>

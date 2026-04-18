@@ -1,0 +1,11 @@
+flask
+requests
+pandas
+numpy
+pytz
+pulp
+thefuzz
+unidecode
+mlb-statsapi
+nba-api
+gunicorn

@@ -1,0 +1,37 @@
+<style>
+    /* Force high contrast for the player pool table */
+    .player-pool-table {
+        background-color: #ffffff; /* White background */
+        color: #1a1a1a;           /* Dark gray/black text */
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    .player-pool-table td, 
+    .player-pool-table th {
+        padding: 12px 8px;
+        border-bottom: 1px solid #e0e0e0;
+        color: #1a1a1a !important; /* Force black text */
+    }
+
+    /* Make the VS and Stats specific colors to pop */
+    .text-muted-custom {
+        color: #555555 !important;
+        font-size: 0.85rem;
+    }
+
+    .stat-value {
+        font-weight: bold;
+        color: #000000 !important;
+    }
+
+    /* Stripe rows for better readability */
+    .player-pool-table tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    /* Highlight hover so you can see which row you are on */
+    .player-pool-table tr:hover {
+        background-color: #fff9c4 !important; /* Light yellow highlight */
+    }
+</style>

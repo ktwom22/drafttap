@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Draft Tap",
+  "url": "https://your-railway-app.railway.app/",
+  "description": "High-performance NBA and MLB lineup optimizer using Python-based analytics for DraftKings and daily fantasy sports.",
+  "applicationCategory": "SportsApplication",
+  "operatingSystem": "All",
+  "author": {
+    "@type": "Person",
+    "name": "Kyle Twombley",
+    "jobTitle": "Director of New Business Development",
+    "description": "Senior Executive and Python Developer specializing in revenue-generating sports analytics."
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "featureList": [
+    "Live NBA Slate Optimization",
+    "Real-time MLB Projection Tap",
+    "Linear Programming Solver (PuLP)",
+    "Revenue-focused betting edge calculation"
+  ]
+}
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draft Tap | Professional NBA & MLB Lineup Optimizer</title>
+    <meta name="description" content="Analytics on tap. Draft Tap provides live NBA and MLB lineup optimization for DraftKings. Built for accuracy, speed, and revenue generation.">
+    <meta name="keywords" content="NBA Optimizer, MLB Optimizer, DraftKings Lineup Generator, Sports Analytics Python, Draft Tap, Kyle Twombley">
+
+    <meta property="og:title" content="Draft Tap | Analytics on Tap">
+    <meta property="og:description" content="Stop guessing. Start pouring. Professional grade sports optimization for the modern bettor.">
+    <meta property="og:image" content="{{ url_for('static', filename='tap-preview.png') }}">
+    <meta property="og:type" content="website">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --terminal-bg: #0d1117;
+            --dk-green: #00ff41;
+            --tap-gold: #ffc107; /* Beer/Amber Gold */
+            --card-bg: #161b22;
+        }
+
+        body {
+            background-color: var(--terminal-bg);
+            color: #ffffff;
+            font-family: 'JetBrains Mono', monospace;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .command-center {
+            max-width: 1000px;
+            width: 100%;
+            padding: 40px 20px;
+        }
+
+        /* --- THE TAP LOGO --- */
+        .brand-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #30363d;
+            padding-bottom: 25px;
+            margin-bottom: 50px;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .call-logo {
+            background: linear-gradient(135deg, var(--tap-gold) 0%, #e67e22 100%);
+            color: #000;
+            width: 55px;
+            height: 55px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            box-shadow: 0 0 25px rgba(255, 193, 7, 0.4);
+            transform: rotate(-10deg); /* Slight "pull" angle */
+        }
+
+        .brand-name {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: -2px;
+            text-transform: uppercase;
+            margin: 0;
+        }
+
+        .brand-name span {
+            color: var(--tap-gold);
+            font-style: italic;
+        }
+
+        /* --- SPORT GRID --- */
+        .sport-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .sport-btn {
+            background: var(--card-bg);
+            border: 1px solid #30363d;
+            border-radius: 16px;
+            padding: 50px 20px;
+            text-decoration: none !important;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .sport-btn:hover:not(.disabled) {
+            border-color: var(--tap-gold);
+            background: #1c2128;
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+        }
+
+        .sport-btn i {
+            font-size: 4rem;
+            color: #8b949e;
+            margin-bottom: 25px;
+        }
+
+        .sport-btn:hover:not(.disabled) i {
+            color: var(--tap-gold);
+        }
+
+        .sport-btn h3 {
+            font-weight: 800;
+            letter-spacing: 2px;
+            margin: 0;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--dk-green);
+            background: rgba(0, 255, 65, 0.1);
+            padding: 4px 12px;
+            border-radius: 20px;
+            text-transform: uppercase;
+        }
+
+        .footer {
+            margin-top: 60px;
+            text-align: center;
+            opacity: 0.4;
+        }
+
+        .footer p {
+            font-size: 0.7rem;
+            letter-spacing: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="command-center">
+    <header class="brand-header">
+        <div class="logo-section">
+            <div class="call-logo">
+                <i class="fa-solid fa-faucet-drip"></i>
+            </div>
+            <h1 class="brand-name">DRAFT<span>TAP</span></h1>
+        </div>
+        <div class="text-end d-none d-md-block">
+            <div class="small text-muted mb-0">OPTIMIZER STATUS: POURING</div>
+            <div class="small text-warning">LEBANON_ME // HQ</div>
+        </div>
+    </header>
+
+    <div class="sport-grid">
+        <a href="/nba" class="sport-btn">
+            <div class="status-badge">● POURED LIVE</div>
+            <i class="fa-solid fa-basketball"></i>
+            <h3>NBA</h3>
+        </a>
+
+        <a href="/mlb" class="sport-btn">
+            <div class="status-badge">● POURED LIVE</div>
+            <i class="fa-solid fa-baseball-bat-ball"></i>
+            <h3>MLB</h3>
+        </a>
+
+        <div class="sport-btn disabled" style="opacity: 0.3; cursor: not-allowed;">
+            <div class="status-badge" style="color: #666; background: none;">FROZEN</div>
+            <i class="fa-solid fa-hockey-puck"></i>
+            <h3>NHL</h3>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>DRAFT TAP // ANALYTICS ON TAP // v2026.4</p>
+    </footer>
+</div>
+
+</body>
+</html>

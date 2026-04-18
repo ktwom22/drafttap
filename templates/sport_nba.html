@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NBA Command Center | {{ status }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --dk-navy: #001e44;
+            --dk-blue: #00471b; /* NBA Bucks/Celtics Green or Navy */
+            --dk-red: #c8102e;
+            --slate: #2c3e50;
+            --light-border: #e0e0e0;
+            --text-primary: #000000;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            color: var(--text-primary);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* --- SCROLLABLE PLAYER POOL --- */
+        .pool-wrapper {
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            border: 1px solid var(--light-border);
+            max-height: 700px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .pool-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-bottom: 0;
+        }
+
+        .pool-table thead th {
+            position: sticky;
+            top: 0;
+            background-color: var(--dk-navy);
+            color: #ffffff;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            z-index: 10;
+            padding: 12px 15px;
+            border-bottom: 2px solid #ff8200; /* NBA Orange Accent */
+        }
+
+        .pool-table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--light-border);
+            vertical-align: middle;
+        }
+
+        .pool-table tr:hover {
+            background-color: #fffde7 !important;
+        }
+
+        /* --- LOADING OVERLAY --- */
+        #loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 30, 68, 0.98);
+            z-index: 9999;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+        }
+
+        /* --- DATA UI --- */
+        .matchup-row { display: block; color: #000000 !important; font-weight: 800; font-size: 0.85rem; }
+        .stat-heavy { display: block; color: var(--dk-navy) !important; font-weight: 800; font-size: 0.9rem; }
+        .stat-light { display: block; color: #777 !important; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+        .proj-pill { font-weight: 900; color: var(--dk-red) !important; font-size: 1.15rem; }
+        .salary-text { font-family: 'Monaco', 'Courier New', monospace; font-weight: 800; color: #2e7d32 !important; font-size: 1rem; }
+
+        /* --- SIDEBAR --- */
+        .sidebar-card { background: white; padding: 20px; border-radius: 12px; border: 1px solid var(--light-border); position: sticky; top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .btn-optimize { background: linear-gradient(135deg, #ff8200 0%, #e67300 100%); color: white; border: none; padding: 16px; font-weight: 800; width: 100%; text-transform: uppercase; letter-spacing: 1.5px; border-radius: 8px; transition: 0.3s; }
+        .btn-optimize:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(255,130,0,0.4); }
+
+        .config-box { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 10px; padding: 15px; margin-bottom: 20px; }
+
+        /* --- LINEUP CARDS --- */
+        .lineup-card { border: none; border-radius: 10px; overflow: hidden; background: #fff; border-top: 5px solid #ff8200; }
+        .lineup-header { background: var(--dk-navy); color: white; font-weight: 800; font-size: 0.9rem; padding: 10px 15px; }
+    </style>
+</head>
+<body>
+
+<div id="loading-overlay">
+    <div class="spinner-grow text-warning" role="status" style="width: 4rem; height: 4rem;"></div>
+    <h2 class="fw-bold text-uppercase mt-4" style="letter-spacing: 3px;">Simulating Slate</h2>
+    <p class="lead text-light opacity-75">Optimizing value floor and rotations...</p>
+</div>
+
+<div class="container-fluid py-4 px-lg-5">
+    <div class="row">
+        <div class="col-lg-3">
+            <div class="sidebar-card">
+                <div class="d-flex align-items-center mb-4">
+                    <div style="background: #ff8200; width: 10px; height: 35px; border-radius: 5px; margin-right: 12px;"></div>
+                    <h4 class="m-0 fw-bold" style="color: var(--dk-navy);">NBA SYSTEMS</h4>
+                </div>
+
+                <form method="POST" id="opt-form">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Lineups</label>
+                            <input type="number" name="num_lineups" class="form-control fw-bold border-2" value="10">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-bold text-muted text-uppercase">Diversity</label>
+                            <input type="number" name="diversity" class="form-control fw-bold border-2" value="3">
+                        </div>
+                    </div>
+
+                    <div class="config-box">
+                        <label class="form-label small fw-bold text-primary text-uppercase mb-2">Punt Strategy</label>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted fw-bold">Min Value Players (<$4k)</label>
+                            <input type="number" name="min_punts" class="form-control fw-bold" value="1" min="0" max="3">
+                        </div>
+                        <div>
+                            <label class="form-label small text-muted fw-bold">Max Player Exposure</label>
+                            <select name="exposure_limit" class="form-select fw-bold">
+                                <option value="1.0">100% (No Limit)</option>
+                                <option value="0.6">60% Max</option>
+                                <option value="0.4" selected>40% Max</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <label class="form-label small fw-bold text-muted text-uppercase d-flex justify-content-between">
+                        <span>Active Games</span>
+                        <span class="text-success">{{ games|length }} Live</span>
+                    </label>
+                    <div class="bg-light p-2 rounded mb-4" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd;">
+                        {% for g in games %}
+                        <div class="form-check small mb-1">
+                            <input class="form-check-input" type="checkbox" name="games" value="{{ g.id }}" checked>
+                            <label class="form-check-label fw-bold">{{ g.display }} <span class="text-muted" style="font-size: 10px;">{{ g.time }}</span></label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <button type="submit" class="btn btn-optimize shadow w-100">GENERATE NBA LINEUPS</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="col-lg-9 mt-4 mt-lg-0">
+            <div class="d-flex justify-content-between align-items-end mb-3">
+                <div>
+                    <h2 class="fw-bold m-0" style="letter-spacing: -1px;">NBA Player Pool</h2>
+                    <p class="text-muted small fw-bold text-uppercase mb-0">{{ status }}</p>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-white border text-dark px-3 py-2 fw-bold shadow-sm">
+                        <span class="text-warning">●</span> NBA ENGINE READY
+                    </span>
+                </div>
+            </div>
+
+            <div class="pool-wrapper">
+                <table class="pool-table">
+                    <thead>
+                        <tr>
+                            <th>PLAYER INFORMATION</th>
+                            <th>MATCHUP</th>
+                            <th>ANALYTICS</th>
+                            <th>PROJ</th>
+                            <th>SALARY</th>
+                            <th class="text-center">LOCK</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in pool %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img src="{{ p.Logo }}" style="width:24px; height:24px;" class="me-2">
+                                    <div>
+                                        <div class="fw-bold">{{ p.Player }}</div>
+                                        <div class="small text-muted fw-bold">{{ p.POS }} · {{ p.Team }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="matchup-row">{{ p.Match_Display }}</span>
+                                <span class="text-muted small fw-bold uppercase">TIP: {{ p.Secondary_Stat }}</span>
+                            </td>
+                            <td>
+                                <span class="stat-heavy">{{ p.Primary_Stat }}</span>
+                                <span class="stat-light">STRENGTH: {{ p.Match_Display.split(' ')[0] }}</span>
+                            </td>
+                            <td><span class="proj-pill">{{ p.Proj }}</span></td>
+                            <td><span class="salary-text">${{ "{:,.0f}".format(p.Salary) }}</span></td>
+                            <td class="text-center">
+                                <input type="checkbox" name="player_locks" value="{{ p.Player }}" class="form-check-input border-2">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if results %}
+            <div class="mt-5" id="results-target">
+                <h3 class="fw-bold mb-4" style="color: var(--dk-navy);">OPTIMIZED NBA LINEUPS</h3>
+                <div class="row">
+                    {% for lineup in results %}
+                    <div class="col-md-6 mb-4">
+                        <div class="lineup-card shadow-sm border-0">
+                            <div class="lineup-header d-flex justify-content-between">
+                                <span>Lineup #{{ loop.index }}</span>
+                                <span>{{ lineup.total_projection }} FPTS</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-sm table-hover mb-0" style="font-size: 13px;">
+                                    <thead class="bg-light">
+                                        <tr class="text-uppercase text-muted" style="font-size: 10px;">
+                                            <th class="ps-3">POS</th>
+                                            <th>PLAYER</th>
+                                            <th>TEAM</th>
+                                            <th class="text-end pe-3">SALARY</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for pl in lineup.players %}
+                                        <tr>
+                                            <td class="ps-3 fw-bold text-muted">{{ pl.Slot }}</td>
+                                            <td class="fw-bold">{{ pl.Name }}</td>
+                                            <td>{{ pl.Team }}</td>
+                                            <td class="text-end pe-3 fw-bold text-success">${{ "{:,.0f}".format(pl.Salary) }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot class="bg-dark text-white fw-bold">
+                                        <tr>
+                                            <td colspan="3" class="text-end">TOTAL SALARY</td>
+                                            <td class="text-end pe-3">${{ "{:,.0f}".format(lineup.total_salary) }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('opt-form').addEventListener('submit', function() {
+        document.getElementById('loading-overlay').style.display = 'flex';
+    });
+</script>
+</body>
+</html>

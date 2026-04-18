@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Betify Pro | {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="bg-dark text-light">
+    <header class="sticky-top bg-black border-bottom border-secondary">
+        <nav class="navbar navbar-expand-lg navbar-dark px-4 py-2">
+            <a class="navbar-brand fw-bold text-primary" href="/">BETIFY PRO</a>
+            <div class="navbar-nav ms-auto gap-3">
+                <span class="text-muted small">Status: <span class="text-success">● Systems Live</span></span>
+            </div>
+        </nav>
+        {% block top_bar %}{% endblock %}
+    </header>
+
+    <main class="container-fluid py-3">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
