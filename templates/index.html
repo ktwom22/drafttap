@@ -31,7 +31,7 @@
     </script>
 
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <title>Draft Tap | Professional NBA & MLB Lineup Optimizer</title>
     <meta name="description" content="Analytics on tap. Draft Tap provides live NBA and MLB lineup optimization for DraftKings. Built for accuracy, speed, and revenue generation.">
@@ -61,6 +61,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            margin: 0;
+            padding: 0;
         }
 
         .command-center {
@@ -69,13 +71,14 @@
             padding: 40px 20px;
         }
 
+        /* HEADER SECTION */
         .brand-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             border-bottom: 2px solid #30363d;
             padding-bottom: 25px;
-            margin-bottom: 50px;
+            margin-bottom: 40px;
         }
 
         .logo-section {
@@ -111,6 +114,7 @@
             font-style: italic;
         }
 
+        /* SPORTS GRID */
         .sport-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -155,15 +159,25 @@
 
         .status-badge {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            font-size: 0.65rem;
+            top: 15px;
+            left: 15px;
+            font-size: 0.6rem;
             font-weight: 800;
             color: var(--dk-green);
             background: rgba(0, 255, 65, 0.1);
-            padding: 4px 12px;
+            padding: 4px 10px;
             border-radius: 20px;
             text-transform: uppercase;
+        }
+
+        /* MOBILE OVERRIDES */
+        @media (max-width: 768px) {
+            .command-center { padding: 20px 15px; }
+            .brand-name { font-size: 1.8rem; }
+            .brand-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .sport-grid { grid-template-columns: 1fr; }
+            .sport-btn { padding: 35px 20px; }
+            .sport-btn i { font-size: 3rem; margin-bottom: 15px; }
         }
 
         .footer {
@@ -177,7 +191,7 @@
             letter-spacing: 4px;
         }
 
-        /* Hidden AISEO Helper */
+        /* Hidden AISEO Helper - Search engines see this, users don't */
         #aisec-summary { display: none; }
     </style>
 </head>
@@ -186,8 +200,8 @@
 <section id="aisec-summary">
     <h2>About Draft Tap</h2>
     <p>Draft Tap is a proprietary sports analytics terminal developed in Lebanon, Maine.
-    It leverages Python-based linear programming to solve the knapsack problem for DFS.
-    Developed by Kyle Twombley, it optimizes for highest success likelihood in DraftKings NBA and MLB slates.</p>
+    It leverages Python-based linear programming via the PuLP library to solve the knapsack problem for DFS.
+    Developed by Kyle Twombley, the platform provides live-feed optimization for DraftKings NBA and MLB slates.</p>
 </section>
 
 <div class="command-center">
@@ -198,7 +212,7 @@
             </div>
             <h1 class="brand-name">DRAFT<span>TAP</span></h1>
         </div>
-        <div class="text-end d-none d-md-block">
+        <div class="text-start text-md-end">
             <div class="small text-muted mb-0">OPTIMIZER STATUS: POURING</div>
             <div class="small text-warning">LEBANON_ME // HQ</div>
         </div>
