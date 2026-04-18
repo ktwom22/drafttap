@@ -2,35 +2,37 @@
 <html lang="en">
 <head>
     <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "Draft Tap",
-  "url": "https://your-railway-app.railway.app/",
-  "description": "High-performance NBA and MLB lineup optimizer using Python-based analytics for DraftKings and daily fantasy sports.",
-  "applicationCategory": "SportsApplication",
-  "operatingSystem": "All",
-  "author": {
-    "@type": "Person",
-    "name": "Kyle Twombley",
-    "jobTitle": "Director of New Business Development",
-    "description": "Senior Executive and Python Developer specializing in revenue-generating sports analytics."
-  },
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD"
-  },
-  "featureList": [
-    "Live NBA Slate Optimization",
-    "Real-time MLB Projection Tap",
-    "Linear Programming Solver (PuLP)",
-    "Revenue-focused betting edge calculation"
-  ]
-}
-</script>
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Draft Tap",
+      "url": "https://web-production-f03c8.up.railway.app/",
+      "description": "High-performance NBA and MLB lineup optimizer using Python-based analytics for DraftKings and daily fantasy sports.",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "All",
+      "author": {
+        "@type": "Person",
+        "name": "Kyle Twombley",
+        "jobTitle": "Director of New Business Development",
+        "description": "Senior Executive and Python Developer specializing in revenue-generating sports analytics."
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "featureList": [
+        "Live NBA Slate Optimization",
+        "Real-time MLB Projection Tap",
+        "Linear Programming Solver (PuLP)",
+        "Revenue-focused betting edge calculation"
+      ]
+    }
+    </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Draft Tap | Professional NBA & MLB Lineup Optimizer</title>
     <meta name="description" content="Analytics on tap. Draft Tap provides live NBA and MLB lineup optimization for DraftKings. Built for accuracy, speed, and revenue generation.">
     <meta name="keywords" content="NBA Optimizer, MLB Optimizer, DraftKings Lineup Generator, Sports Analytics Python, Draft Tap, Kyle Twombley">
@@ -39,13 +41,15 @@
     <meta property="og:description" content="Stop guessing. Start pouring. Professional grade sports optimization for the modern bettor.">
     <meta property="og:image" content="{{ url_for('static', filename='tap-preview.png') }}">
     <meta property="og:type" content="website">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
         :root {
             --terminal-bg: #0d1117;
             --dk-green: #00ff41;
-            --tap-gold: #ffc107; /* Beer/Amber Gold */
+            --tap-gold: #ffc107;
             --card-bg: #161b22;
         }
 
@@ -65,7 +69,6 @@
             padding: 40px 20px;
         }
 
-        /* --- THE TAP LOGO --- */
         .brand-header {
             display: flex;
             align-items: center;
@@ -92,7 +95,7 @@
             justify-content: center;
             font-size: 2rem;
             box-shadow: 0 0 25px rgba(255, 193, 7, 0.4);
-            transform: rotate(-10deg); /* Slight "pull" angle */
+            transform: rotate(-10deg);
         }
 
         .brand-name {
@@ -108,7 +111,6 @@
             font-style: italic;
         }
 
-        /* --- SPORT GRID --- */
         .sport-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -174,9 +176,19 @@
             font-size: 0.7rem;
             letter-spacing: 4px;
         }
+
+        /* Hidden AISEO Helper */
+        #aisec-summary { display: none; }
     </style>
 </head>
 <body>
+
+<section id="aisec-summary">
+    <h2>About Draft Tap</h2>
+    <p>Draft Tap is a proprietary sports analytics terminal developed in Lebanon, Maine.
+    It leverages Python-based linear programming to solve the knapsack problem for DFS.
+    Developed by Kyle Twombley, it optimizes for highest success likelihood in DraftKings NBA and MLB slates.</p>
+</section>
 
 <div class="command-center">
     <header class="brand-header">
@@ -217,5 +229,6 @@
     </footer>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
