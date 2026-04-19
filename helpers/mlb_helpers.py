@@ -94,7 +94,6 @@ def get_weighted_stats():
     global _STATS_CACHE
     if _STATS_CACHE['h'] is not None and (time.time() - _STATS_CACHE['time']) < 3600:
         return _STATS_CACHE['h'], _STATS_CACHE['p']
-
     W_PREV, W_CURR = 0.7, 0.3
     p25, p26 = fetch_pitcher_metrics(2025), fetch_pitcher_metrics(2026)
     blended_p = []
@@ -103,12 +102,10 @@ def get_weighted_stats():
         blend = lambda k, d: (s25[k] * W_PREV + s26[k] * W_CURR) if (s25 and s26 and k in s25 and k in s26) else (
             s26[k] if s26 else (s25[k] if s25 else d))
         k9, kbb, whip = blend('K9', 7.5), blend('K_BB', 2.5), blend('WHIP', 1.35)
-        blended_p.append({
-            'norm_name': name, 'full_name': s26['full_name'] if s26 else s25['full_name'],
-            'Chalk_Quality': round(max(0.1, (k9 * 0.5 + kbb * 0.5 - whip * 2.0)), 2), 'WHIP': round(whip, 2),
-            'K/9': round(k9, 2), 'HR/9': blend('HR9', 1.2), 'GS': s26['GS'] if s26 else (s25['GS'] if s25 else 0)
-        })
-
+        blended_p.append({'norm_name': name, 'full_name': s26['full_name'] if s26 else s25['full_name'],
+                          'Chalk_Quality': round(max(0.1, (k9 * 0.5 + kbb * 0.5 - whip * 2.0)), 2),
+                          'WHIP': round(whip, 2), 'K/9': round(k9, 2), 'HR/9': blend('HR9', 1.2),
+                          'GS': s26['GS'] if s26 else (s25['GS'] if s25 else 0)})
     h25, h26 = fetch_hitter_metrics(2025), fetch_hitter_metrics(2026)
     blended_h = []
     for name in set(h25.keys()) | set(h26.keys()):
@@ -116,11 +113,9 @@ def get_weighted_stats():
         blend = lambda k, d: (s25[k] * W_PREV + s26[k] * W_CURR) if (s25 and s26 and k in s25 and k in s26) else (
             s26[k] if s26 else (s25[k] if s25 else d))
         iso = blend('ISO', 0.150)
-        blended_h.append({
-            'norm_name': name, 'full_name': s26['full_name'] if s26 else s25['full_name'],
-            'ISO': round(iso, 3), 'wRC+': int(blend('wRC_proxy', 100)), 'Edge_Value': round(iso * 400, 2)
-        })
-
+        blended_h.append(
+            {'norm_name': name, 'full_name': s26['full_name'] if s26 else s25['full_name'], 'ISO': round(iso, 3),
+             'wRC+': int(blend('wRC_proxy', 100)), 'Edge_Value': round(iso * 400, 2)})
     h_df, p_df = pd.DataFrame(blended_h), pd.DataFrame(blended_p)
     _STATS_CACHE.update({'h': h_df, 'p': p_df, 'time': time.time()})
     return h_df, p_df
@@ -128,42 +123,62 @@ def get_weighted_stats():
 
 def get_mlb_weather_data():
     weather_map = {}
-    api_to_abbr = {"Arizona Diamondbacks": "ARI", "Atlanta Braves": "ATL", "Baltimore Orioles": "BAL",
-                   "Boston Red Sox": "BOS", "Chicago Cubs": "CHC", "Chicago White Sox": "CWS", "Cincinnati Reds": "CIN",
-                   "Cleveland Guardians": "CLE", "Colorado Rockies": "COL", "Detroit Tigers": "DET",
-                   "Houston Astros": "HOU", "Kansas City Royals": "KC", "Los Angeles Angels": "LAA",
-                   "Los Angeles Dodgers": "LAD", "Miami Marlins": "MIA", "Milwaukee Brewers": "MIL",
-                   "Minnesota Twins": "MIN", "New York Mets": "NYM", "New York Yankees": "NYY",
-                   "Oakland Athletics": "OAK", "Philadelphia Phillies": "PHI", "Pittsburgh Pirates": "PIT",
-                   "San Diego Padres": "SD", "San Francisco Giants": "SF", "Seattle Mariners": "SEA",
-                   "St. Louis Cardinals": "STL", "Tampa Bay Rays": "TB", "Texas Rangers": "TEX",
-                   "Toronto Blue Jays": "TOR", "Washington Nationals": "WAS"}
+    api_to_abbr = {v: k for k, v in {
+        "ARI": "Arizona Diamondbacks", "ATL": "Atlanta Braves", "BAL": "Baltimore Orioles",
+        "BOS": "Boston Red Sox", "CHC": "Chicago Cubs", "CWS": "Chicago White Sox", "CIN": "Cincinnati Reds",
+        "CLE": "Cleveland Guardians", "COL": "Colorado Rockies", "DET": "Detroit Tigers",
+        "HOU": "Houston Astros", "KC": "Kansas City Royals", "LAA": "Los Angeles Angels",
+        "LAD": "Los Angeles Dodgers", "MIA": "Miami Marlins", "MIL": "Milwaukee Brewers",
+        "MIN": "Minnesota Twins", "NYM": "New York Mets", "NYY": "New York Yankees",
+        "OAK": "Oakland Athletics", "PHI": "Philadelphia Phillies", "PIT": "Pittsburgh Pirates",
+        "SD": "San Diego Padres", "SF": "San Francisco Giants", "SEA": "Seattle Mariners",
+        "STL": "St. Louis Cardinals", "TB": "Tampa Bay Rays", "TEX": "Texas Rangers",
+        "TOR": "Toronto Blue Jays", "WAS": "Washington Nationals"
+    }.items()}
+
     try:
+        # Fetching current schedule
         games = statsapi.schedule(date=datetime.now(pytz.timezone('US/Eastern')).strftime('%Y-%m-%d'))
         for g in games:
             a, h = api_to_abbr.get(g['away_name']), api_to_abbr.get(g['home_name'])
             if not a or not h: continue
-            # Lookup key is alphabetical for internal matching
+
             gid = " vs ".join(sorted([a, h]))
+
+            # This is the "Slow" but accurate call.
             det = statsapi.get('game', {'gamePk': g['game_id']})
-            w = det.get('gameData', {}).get('weather', {})
+            game_data = det.get('gameData', {})
+            w_obj = game_data.get('weather', {})
+
+            # Extract raw wind string
+            raw_wind = w_obj.get('wind', '')
+
+            # --- THE FALLBACK LOGIC ---
+            if not raw_wind or "0 mph" in raw_wind:
+                speed, direction = "--", "Calm/TBD"
+            else:
+                try:
+                    # Regex: Find first number for speed, then everything after the comma for direction
+                    s_match = re.search(r'(\d+)', raw_wind)
+                    d_match = re.search(r',\s*(.*)', raw_wind)
+                    speed = s_match.group(1) if s_match else "0"
+                    direction = d_match.group(1) if d_match else "Calm"
+                except:
+                    speed, direction = "0", "Calm"
+
             weather_map[gid] = {
-                'temp': int(w.get('temp', 70)) if str(w.get('temp')).isdigit() else 70,
-                'wind': w.get('wind', '0 mph, Calm'),
-                'condition': w.get('condition', 'Clear'),
-                'away': a,
-                'home': h
+                'temp': w_obj.get('temp', '--'),
+                'wind_speed': speed,
+                'wind_direction': direction,
+                'condition': w_obj.get('condition', 'Clear'),
+                'venue': game_data.get('venue', {}).get('name', 'Unknown')
             }
-    except:
-        pass
+    except Exception as e:
+        print(f"Weather Fetch Error: {e}")
     return weather_map
 
 
 def get_espn_game_info():
-    """
-    Returns a mapping of lookup_id (alphabetical) to real game details.
-    This uses the logic from your audit to identify Home vs Away correctly.
-    """
     date_str = datetime.now(pytz.timezone('US/Eastern')).strftime('%Y%m%d')
     url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={date_str}"
     game_info = {}
@@ -171,25 +186,13 @@ def get_espn_game_info():
         data = requests.get(url).json()
         for e in data.get('events', []):
             comp = e['competitions'][0]['competitors']
-
-            # Explicitly identify Away and Home using the homeAway key
             home_raw = next(t['team']['abbreviation'] for t in comp if t['homeAway'] == 'home')
             away_raw = next(t['team']['abbreviation'] for t in comp if t['homeAway'] == 'away')
-
-            h = TEAM_MAP.get(home_raw, home_raw)
-            a = TEAM_MAP.get(away_raw, away_raw)
-
-            # Alphabetical key for the lookup logic (consistent with weather)
+            h, a = TEAM_MAP.get(home_raw, home_raw), TEAM_MAP.get(away_raw, away_raw)
             lookup_id = " vs ".join(sorted([h, a]))
-
             utc = datetime.strptime(e['date'], "%Y-%m-%dT%H:%MZ").replace(tzinfo=pytz.utc)
-            game_info[lookup_id] = {
-                'display': f"{a} @ {h}",
-                'raw_time': utc,
-                'home_team': h,
-                'away_team': a,
-                'time_str': utc.astimezone(pytz.timezone('US/Eastern')).strftime('%I:%M %p')
-            }
+            game_info[lookup_id] = {'display': f"{a} @ {h}", 'raw_time': utc, 'home_team': h, 'away_team': a,
+                                    'time_str': utc.astimezone(pytz.timezone('US/Eastern')).strftime('%I:%M %p')}
     except:
         pass
     return game_info

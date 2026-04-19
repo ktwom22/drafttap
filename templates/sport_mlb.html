@@ -12,193 +12,209 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>{{ sport }} Optimizer | Build around {{ top_stars }} | Draft Tap</title>
-    <meta name="description" content="Free {{ sport }} lineup optimizer for today's slate featuring {{ matchups }}. High-performance projections for {{ top_stars }} and more. Built by Kyle Twombley.">
-
-    <meta property="og:title" content="{{ sport }} Analytics on Tap: {{ matchups }}">
-    <meta property="og:description" content="Optimize your DraftKings lineups for {{ top_stars }}. Dynamic weather and ownership analytics.">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Draft Tap">
+    <title>{{ sport }} Optimizer | Draft Tap</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --terminal-bg: #0d1117;
-            --dk-green: #00ff41;
+            --bg-deep: #000000;
+            --bg-card: #0d1117;
+            --neon-green: #00ff85;
             --tap-gold: #ffc107;
-            --card-bg: #161b22;
-            --border-color: #30363d;
+            --electric-blue: #22d3ee;
+            --border-heavy: #30363d;
+            --text-main: #ffffff;
+            --text-dim: #b1bac4;
         }
 
         body {
-            background-color: var(--terminal-bg);
-            color: #ffffff;
-            font-family: 'JetBrains Mono', monospace;
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
             margin: 0;
+            overflow-x: hidden;
         }
 
-        /* --- LOADING OVERLAY --- */
         #loading-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(13, 17, 23, 0.95);
+            background: rgba(0, 0, 0, 0.98);
             z-index: 9999;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            text-align: center;
         }
 
-        /* --- SIDEBAR & BUTTONS --- */
+        /* --- COMMAND CENTER (NO BRUTAL WHITE) --- */
         .sidebar-card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
+            background: #080a0c;
+            padding: 24px;
+            border-radius: 6px;
+            border: 1px solid var(--border-heavy);
             position: sticky;
             top: 20px;
         }
 
+        .form-control, .form-select {
+            background-color: #121519 !important;
+            border: 1px solid #3f444d !important;
+            color: #ffffff !important;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            border-radius: 4px !important;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--neon-green) !important;
+            box-shadow: 0 0 10px rgba(0, 255, 133, 0.2) !important;
+            outline: none;
+        }
+
+        .input-group-text {
+            background-color: #1c2128 !important;
+            border-color: #3f444d !important;
+            color: var(--text-dim) !important;
+            font-size: 0.65rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        /* --- LOGO & UI CONTRAST --- */
+        .logo-protect {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo-protect img { filter: drop-shadow(0 0 2px black); }
+
+        .brand-name { font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; }
+        .brand-name span { color: var(--tap-gold); font-weight: 900; }
+
         .btn-optimize {
-            background: linear-gradient(135deg, var(--tap-gold) 0%, #e67e22 100%);
+            background-color: var(--neon-green);
             color: #000;
             border: none;
             padding: 16px;
-            font-weight: 800;
+            font-weight: 900;
             width: 100%;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
-            border-radius: 8px;
-            transition: 0.3s;
+            letter-spacing: 2px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
         }
 
-        .btn-optimize:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(255,193,7,0.3); }
+        .btn-optimize:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 255, 133, 0.3); }
 
-        /* --- PLAYER POOL --- */
-        .pool-wrapper {
-            background: var(--card-bg);
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            max-height: 700px;
-            overflow: hidden;
-        }
-
-        .table-responsive { max-height: 650px; overflow-y: auto; }
-
+        /* --- TABLES & CARDS --- */
+        .pool-wrapper { background: var(--bg-deep); border: 1px solid var(--border-heavy); border-radius: 6px; }
         .pool-table thead th {
-            position: sticky; top: 0;
-            background-color: #1c2128;
-            color: var(--tap-gold);
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            z-index: 10;
-            padding: 15px;
-            border-bottom: 2px solid var(--border-color);
+            position: sticky; top: 0; background-color: #0d1117;
+            color: var(--text-dim); text-transform: uppercase;
+            font-size: 0.65rem; font-weight: 800; z-index: 10;
+            padding: 15px; border-bottom: 2px solid var(--border-heavy);
         }
 
-        .pool-table td {
-            padding: 12px 15px;
-            border-bottom: 1px solid var(--border-color);
-            vertical-align: middle;
-            color: #e6edf3;
+        .metric-primary { color: var(--neon-green); font-weight: 800; font-size: 0.85rem; font-family: 'JetBrains Mono'; }
+        .metric-secondary { color: var(--text-dim); font-size: 0.7rem; font-family: 'JetBrains Mono'; }
+
+        .wind-text { color: var(--electric-blue); font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono'; }
+
+        .lineup-card {
+            background: #0d1117;
+            border: 1px solid var(--border-heavy);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+        .lineup-card:hover { border-color: var(--neon-green); }
+        .lineup-header { background: #1c2128; border-bottom: 2px solid var(--neon-green); padding: 12px 15px; }
+
+        .slot-badge {
+            background: #21262d; color: #fff; font-family: 'JetBrains Mono';
+            font-weight: 800; font-size: 10px; padding: 4px 0;
+            width: 40px; text-align: center; border-radius: 4px;
         }
 
-        /* --- STACK BOX --- */
-        .stack-box {
-            background: rgba(255, 193, 7, 0.05);
-            border: 1px dashed var(--tap-gold);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
+        .hand-badge {
+            background: rgba(34, 211, 238, 0.1); color: var(--electric-blue);
+            font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 3px;
         }
 
-        .form-control, .form-select {
-            background-color: var(--terminal-bg);
-            border: 1px solid var(--border-color);
-            color: white;
-        }
-
-        .form-control:focus { background-color: #1c2128; color: white; border-color: var(--tap-gold); box-shadow: none; }
-
-        .proj-pill { font-weight: 900; color: var(--tap-gold); font-size: 1.15rem; }
-        .salary-text { font-weight: 800; color: var(--dk-green); }
-
-        @media (max-width: 768px) {
-            .brand-name { font-size: 1.5rem; }
-            .sidebar-card { position: relative; top: 0; margin-bottom: 20px; }
-            .pool-table { font-size: 0.8rem; }
-            .pool-table td, .pool-table th { padding: 8px; }
-        }
+        @media (max-width: 768px) { .pool-table { font-size: 0.8rem; } }
     </style>
 </head>
 <body>
 
 <div id="loading-overlay">
-    <div class="spinner-border text-warning" role="status" style="width: 4rem; height: 4rem;"></div>
-    <h2 class="fw-bold text-uppercase mt-4" style="color: var(--tap-gold); letter-spacing: 3px;">Pouring Lineups</h2>
-    <p class="lead opacity-75">Optimizing {{ sport }} stacks and projections...</p>
+    <div class="spinner-border" style="width: 3rem; height: 3rem; color: var(--neon-green);" role="status"></div>
+    <h2 class="fw-black text-uppercase mt-4" style="color: var(--neon-green); letter-spacing: 5px;">POURING</h2>
 </div>
 
 <div class="container-fluid py-4 px-lg-5">
-    <div class="d-flex align-items-center mb-4">
+    <div class="d-flex align-items-center mb-5">
         <a href="/" style="text-decoration: none; color: inherit;" class="d-flex align-items-center">
-            <i class="fa-solid fa-faucet-drip me-3" style="color: var(--tap-gold); font-size: 2rem;"></i>
-            <h2 class="fw-bold m-0">{{ sport }}<span>TAP</span></h2>
+            <i class="fa-solid fa-bolt-lightning me-3" style="color: var(--neon-green); font-size: 1.8rem;"></i>
+            <h2 class="brand-name fw-bold m-0">DRAFT<span>TAP</span></h2>
         </a>
-        <div class="ms-auto d-flex align-items-center">
-            <a href="/" class="btn btn-sm btn-outline-secondary me-3 d-none d-md-block">COMMAND CENTER</a>
-            <span class="badge border text-uppercase" style="color: var(--dk-green); border-color: var(--dk-green);">● Live Slate</span>
-        </div>
+        <div class="ms-auto"><span class="badge border text-uppercase px-3" style="color: var(--neon-green); border-color: var(--neon-green); font-size: 0.7rem;">● LIVE SLATE</span></div>
     </div>
 
-    <div class="row">
+    <div class="row g-4">
         <div class="col-lg-3">
             <div class="sidebar-card">
+                <h6 class="text-white fw-black mb-4" style="letter-spacing: 1px; font-size: 0.75rem;">COMMAND CENTER</h6>
                 <form method="POST" id="opt-form">
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label class="small fw-bold text-muted text-uppercase">Lineups</label>
-                            <input type="number" name="num_lineups" class="form-control" value="10">
-                        </div>
-                        <div class="col-6">
-                            <label class="small fw-bold text-muted text-uppercase">Diversity</label>
-                            <input type="number" name="diversity" class="form-control" value="4">
-                        </div>
+                    <div class="mb-4">
+                        <label class="small fw-bold text-dim text-uppercase mb-2 d-block">Lineups</label>
+                        <input type="number" name="num_lineups" class="form-control" value="10">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="small fw-bold text-dim text-uppercase mb-2 d-block">Diversity</label>
+                        <input type="number" name="diversity" class="form-control" value="4">
                     </div>
 
                     {% if sport == "MLB" %}
-                    <div class="stack-box">
-                        <label class="small fw-bold text-warning text-uppercase d-block mb-2">Stacking Logic</label>
+                    <div class="mb-4">
+                        <label class="small fw-bold text-dim text-uppercase d-block mb-2">Team Stack</label>
                         <select name="stack_team" class="form-select mb-2">
-                            <option value="None">Auto-Select Team</option>
+                            <option value="None">Auto-Select</option>
                             {% for team in teams %}
                             <option value="{{ team }}">{{ team }}</option>
                             {% endfor %}
                         </select>
-                        <input type="number" name="min_stack" class="form-control" value="5" placeholder="Size">
+                        <div class="input-group">
+                            <span class="input-group-text">Min Size</span>
+                            <input type="number" name="min_stack" class="form-control" value="5">
+                        </div>
                     </div>
                     {% endif %}
 
-                    <button type="submit" class="btn btn-optimize shadow">GENERATE TAP</button>
+                    <button type="submit" class="btn btn-optimize">Generate Slate</button>
                 </form>
             </div>
         </div>
 
         <div class="col-lg-9">
-            <div class="pool-wrapper">
+            <div class="pool-wrapper mb-5 shadow-lg">
                 <div class="table-responsive">
-                    <table class="table pool-table table-dark mb-0">
+                    <table class="table table-dark mb-0 pool-table">
                         <thead>
                             <tr>
-                                <th>PLAYER</th>
-                                <th>MATCHUP</th>
-                                <th>METRICS</th>
-                                <th>PROJ</th>
-                                <th>SALARY</th>
-                                <th>LOCK</th>
+                                <th>Player</th>
+                                <th>Matchup / Weather</th>
+                                <th>Adv Metrics</th>
+                                <th class="text-end">Proj</th>
+                                <th class="text-end">Salary</th>
+                                <th class="text-center">Lock</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -206,25 +222,28 @@
                             <tr>
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <img src="{{ p.Logo }}" style="width:24px;" class="me-2">
+                                        <div class="logo-protect me-3"><img src="{{ p.Logo }}" style="width:22px;"></div>
                                         <div>
-                                            <div class="fw-bold">{{ p.Player }}</div>
-                                            <div class="small text-muted">{{ p.POS }} · {{ p.Team }}</div>
+                                            <div class="fw-bold text-white">{{ p.Player }}</div>
+                                            <div class="small text-dim" style="font-size: 10px;">{{ p.POS }} · {{ p.Team }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
                                     <div class="fw-bold small">{{ p.Match_Display }}</div>
-                                    {% if p.Weather_Short %}
-                                    <div style="font-size: 10px;" class="text-warning">{{ p.W_Icon }} {{ p.Weather_Short }}</div>
-                                    {% endif %}
+                                    <div class="text-warning small fw-bold">{{ p.W_Icon }} {{ p.Weather_Short }}</div>
+                                    <div class="wind-text">
+                                        <i class="fa-solid fa-wind me-1" style="font-size: 9px;"></i>
+                                        {{ p.Wind_Speed }}mph {{ p.Wind_Direction }}
+                                    </div>
                                 </td>
-                                <td><span class="small text-muted">{{ p.Primary_Stat }}</span></td>
-                                <td><span class="proj-pill">{{ p.Proj }}</span></td>
-                                <td><span class="salary-text">${{ "{:,.0f}".format(p.Salary) }}</span></td>
-                                <td class="text-center">
-                                    <input type="checkbox" name="player_locks" value="{{ p.Player }}" class="form-check-input">
+                                <td>
+                                    <div class="metric-primary">{{ p.Primary_Stat }}</div>
+                                    <div class="metric-secondary">{{ p.Secondary_Stat }}</div>
                                 </td>
+                                <td class="text-end"><span class="proj-value" style="color: var(--neon-green); font-weight: 900; font-size: 1.1rem;">{{ p.Proj }}</span></td>
+                                <td class="text-end"><span style="color: var(--tap-gold); font-weight: 800; font-family: 'JetBrains Mono';">${{ "{:,.0f}".format(p.Salary) }}</span></td>
+                                <td class="text-center"><input type="checkbox" name="player_locks" value="{{ p.Player }}" class="form-check-input"></td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -233,29 +252,45 @@
             </div>
 
             {% if results %}
-            <div class="mt-5" id="results-target">
-                <h3 class="fw-bold mb-4" style="color: var(--tap-gold);">POURED LINEUPS</h3>
-                <div class="row">
+            <div id="results-target">
+                <h3 class="fw-black mb-4" style="color: var(--neon-green); letter-spacing: 2px; font-weight: 900;">POURED LINEUPS</h3>
+                <div class="row g-4">
                     {% for lineup in results %}
-                    <div class="col-md-6 mb-4">
-                        <div class="card bg-dark border-secondary">
-                            <div class="card-header d-flex justify-content-between py-3" style="background: #1c2128;">
-                                <span class="fw-bold">LINEUP #{{ loop.index }}</span>
-                                <span class="text-warning fw-bold">{{ lineup.total_projection }} FPTS</span>
+                    <div class="col-md-6 col-xl-4">
+                        <div class="lineup-card">
+                            <div class="lineup-header d-flex justify-content-between">
+                                <span class="fw-bold text-dim small">ENTRY #{{ loop.index }}</span>
+                                <span class="fw-black" style="color: var(--neon-green);">{{ lineup.total_projection }} <small style="font-size: 9px;">FPTS</small></span>
                             </div>
-                            <div class="card-body p-0">
-                                <table class="table table-dark table-sm table-hover mb-0" style="font-size: 12px;">
-                                    <tbody>
-                                        {% for pl in lineup.players %}
-                                        <tr>
-                                            <td class="ps-3 text-muted">{{ pl.Slot }}</td>
-                                            <td class="fw-bold">{{ pl.Name }}</td>
-                                            <td class="text-end pe-3 text-success">${{ "{:,.0f}".format(pl.Salary) }}</td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <table class="table table-dark table-sm mb-0">
+                                <tbody>
+                                    {% for pl in lineup.players %}
+                                    <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid #1c2128;">
+                                        <td class="ps-3 align-middle" style="width: 50px;"><div class="slot-badge">{{ pl.Slot }}</div></td>
+                                        <td class="align-middle py-2">
+                                            <div class="d-flex align-items-center">
+                                                <div class="logo-protect me-2" style="padding: 2px;">
+                                                    <img src="{{ pl.Logo }}" style="width:16px;">
+                                                    <span class="mx-1" style="font-size: 7px; color: #444;">v</span>
+                                                    <img src="{{ pl.Opp_Logo }}" style="width:16px; opacity: 0.6;">
+                                                </div>
+                                                <div>
+                                                    <div class="fw-bold text-white" style="font-size: 11px;">{{ pl.Name }}</div>
+                                                    <div class="hand-badge">{{ pl.Matchup_Hand }}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="text-end pe-3 align-middle">
+                                            <div style="color: var(--tap-gold); font-size: 10px; font-weight: 800;">${{ "{:,.0f}".format(pl.Salary) }}</div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr style="background: #0d1117;">
+                                        <td colspan="2" class="ps-3 py-2 text-dim text-uppercase" style="font-size: 9px; letter-spacing: 1px;">Bankroll Left</td>
+                                        <td class="text-end pe-3 py-2 fw-bold text-white" style="font-size: 11px;">${{ "{:,.0f}".format(50000 - lineup.total_salary) }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                     {% endfor %}
@@ -265,11 +300,6 @@
         </div>
     </div>
 </div>
-
-<section style="display:none;">
-    <h2>Today's {{ sport }} Analytics</h2>
-    <p>Featured {{ sport }} matchups include {{ matchups }}. Optimization focus on top stars: {{ top_stars }}. Analytics provided by Draft Tap.</p>
-</section>
 
 <script>
     document.getElementById('opt-form').addEventListener('submit', function() {
