@@ -1,18 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-V4NJH4K19B"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'G-V4NJH4K19B');
     </script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DRAFT TAP | NBA Optimizer</title>
+
+    <title>{{ sport }} Optimizer | Build around {{ top_stars }} | Draft Tap</title>
+    <meta name="description" content="Free {{ sport }} lineup optimizer for today's slate featuring {{ matchups }}. High-performance projections for {{ top_stars }} and more. Built by Kyle Twombley.">
+
+    <meta property="og:title" content="{{ sport }} Analytics on Tap: {{ matchups }}">
+    <meta property="og:description" content="Optimize your DraftKings lineups for {{ top_stars }}. Pro-grade projections on tap.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Draft Tap">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -147,9 +153,10 @@
     <div class="d-flex align-items-center mb-4">
         <a href="/" style="text-decoration: none; color: inherit;" class="d-flex align-items-center">
             <i class="fa-solid fa-faucet-drip me-3" style="color: var(--nba-orange); font-size: 2rem;"></i>
-            <h2 class="fw-bold m-0">NBA<span>TAP</span></h2>
+            <h2 class="fw-bold m-0">{{ sport }}<span>TAP</span></h2>
         </a>
-        <div class="ms-auto text-end">
+        <div class="ms-auto d-flex align-items-center">
+             <a href="/" class="btn btn-sm btn-outline-secondary me-3 d-none d-md-block">COMMAND CENTER</a>
             <span class="badge border text-uppercase" style="color: var(--nba-orange); border-color: var(--nba-orange);">● Systems Ready</span>
         </div>
     </div>
@@ -195,7 +202,7 @@
                         {% endfor %}
                     </div>
 
-                    <button type="submit" class="btn btn-optimize shadow">GENERATE NBA LINEUPS</button>
+                    <button type="submit" class="btn btn-optimize shadow">GENERATE {{ sport }} LINEUPS</button>
                 </form>
             </div>
         </div>
@@ -247,7 +254,7 @@
 
             {% if results %}
             <div class="mt-5" id="results-target">
-                <h3 class="fw-bold mb-4" style="color: var(--nba-orange);">POURED NBA LINEUPS</h3>
+                <h3 class="fw-bold mb-4" style="color: var(--nba-orange);">POURED {{ sport }} LINEUPS</h3>
                 <div class="row">
                     {% for lineup in results %}
                     <div class="col-md-6 mb-4">
@@ -285,6 +292,11 @@
         </div>
     </div>
 </div>
+
+<section style="display:none;">
+    <h2>Today's {{ sport }} Projections & Optimization</h2>
+    <p>Daily {{ sport }} DFS projections for today's matchups: {{ matchups }}. Optimization focuses on core stars like {{ top_stars }} and high-value punt plays.</p>
+</section>
 
 <script>
     document.getElementById('opt-form').addEventListener('submit', function() {
