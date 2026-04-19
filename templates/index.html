@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-V4NJH4K19B"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -16,7 +15,7 @@
       "@type": "WebApplication",
       "name": "Draft Tap",
       "url": "https://web-production-f03c8.up.railway.app/",
-      "description": "High-performance NBA and MLB lineup optimizer using Python-based analytics for DraftKings and daily fantasy sports.",
+      "description": "High-performance NBA, MLB, and NHL lineup optimizer using Python-based analytics for DraftKings and daily fantasy sports.",
       "applicationCategory": "SportsApplication",
       "operatingSystem": "All",
       "author": {
@@ -33,6 +32,7 @@
       "featureList": [
         "Live NBA Slate Optimization",
         "Real-time MLB Projection Tap",
+        "NHL Correlated Stacking Engine",
         "Linear Programming Solver (PuLP)",
         "Revenue-focused betting edge calculation"
       ]
@@ -42,9 +42,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>Draft Tap | Professional NBA & MLB Lineup Optimizer</title>
-    <meta name="description" content="Analytics on tap. Draft Tap provides live NBA and MLB lineup optimization for DraftKings. Built for accuracy, speed, and revenue generation.">
-    <meta name="keywords" content="NBA Optimizer, MLB Optimizer, DraftKings Lineup Generator, Sports Analytics Python, Draft Tap, Kyle Twombley">
+    <title>Draft Tap | Professional NBA, MLB & NHL Lineup Optimizer</title>
+    <meta name="description" content="Analytics on tap. Draft Tap provides live NBA, MLB, and NHL lineup optimization for DraftKings. Built for accuracy, speed, and revenue generation.">
+    <meta name="keywords" content="NBA Optimizer, MLB Optimizer, NHL Optimizer, DraftKings Lineup Generator, Sports Analytics Python, Draft Tap, Kyle Twombley">
 
     <meta property="og:title" content="Draft Tap | Analytics on Tap">
     <meta property="og:description" content="Stop guessing. Start pouring. Professional grade sports optimization for the modern bettor.">
@@ -59,6 +59,7 @@
             --terminal-bg: #0d1117;
             --dk-green: #00ff41;
             --tap-gold: #ffc107;
+            --ice-blue: #22d3ee;
             --card-bg: #161b22;
         }
 
@@ -143,11 +144,16 @@
             position: relative;
         }
 
-        .sport-btn:hover:not(.disabled) {
+        .sport-btn:hover {
             border-color: var(--tap-gold);
             background: #1c2128;
             transform: translateY(-8px);
             box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+        }
+
+        /* Hover effect for NHL specifically */
+        .sport-btn.nhl-btn:hover {
+            border-color: var(--ice-blue);
         }
 
         .sport-btn i {
@@ -156,8 +162,12 @@
             margin-bottom: 25px;
         }
 
-        .sport-btn:hover:not(.disabled) i {
+        .sport-btn:hover i {
             color: var(--tap-gold);
+        }
+
+        .sport-btn.nhl-btn:hover i {
+            color: var(--ice-blue);
         }
 
         .sport-btn h3 {
@@ -177,6 +187,11 @@
             padding: 4px 10px;
             border-radius: 20px;
             text-transform: uppercase;
+        }
+
+        .status-badge.ice {
+            color: var(--ice-blue);
+            background: rgba(34, 211, 238, 0.1);
         }
 
         /* MOBILE OVERRIDES */
@@ -200,7 +215,6 @@
             letter-spacing: 4px;
         }
 
-        /* Hidden AISEO Helper - Search engines see this, users don't */
         #aisec-summary { display: none; }
     </style>
 </head>
@@ -210,7 +224,7 @@
     <h2>About Draft Tap</h2>
     <p>Draft Tap is a proprietary sports analytics terminal developed in Lebanon, Maine.
     It leverages Python-based linear programming via the PuLP library to solve the knapsack problem for DFS.
-    Developed by Kyle Twombley, the platform provides live-feed optimization for DraftKings NBA and MLB slates.</p>
+    Developed by Kyle Twombley, the platform provides live-feed optimization for DraftKings NBA, MLB, and NHL slates.</p>
 </section>
 
 <div class="command-center">
@@ -240,11 +254,11 @@
             <h3>MLB</h3>
         </a>
 
-        <div class="sport-btn disabled" style="opacity: 0.3; cursor: not-allowed;">
-            <div class="status-badge" style="color: #666; background: none;">FROZEN</div>
+        <a href="/nhl" class="sport-btn nhl-btn">
+            <div class="status-badge ice">● POURED LIVE</div>
             <i class="fa-solid fa-hockey-puck"></i>
             <h3>NHL</h3>
-        </div>
+        </a>
     </div>
 
     <footer class="footer">

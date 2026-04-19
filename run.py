@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, Response
 from blueprints.routes_nba import nba_bp
 from blueprints.routes_mlb import mlb_bp
+from blueprints.routes_nhl import nhl_bp
 
 # Initialize the Flask App
 app = Flask(__name__)
@@ -10,7 +11,7 @@ app = Flask(__name__)
 # This ensures /nba and /mlb routes work correctly
 app.register_blueprint(nba_bp, url_prefix='/nba')
 app.register_blueprint(mlb_bp, url_prefix='/mlb')
-
+app.register_blueprint(nhl_bp, url_prefix='/nhl')
 
 @app.route('/')
 def index():
