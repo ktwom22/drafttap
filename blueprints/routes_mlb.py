@@ -19,7 +19,6 @@ mlb_bp = Blueprint('mlb', __name__, url_prefix='/mlb')
 # --- CONFIGURATION ---
 SALARY_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRzCRSTDnslz-zmGESH1CFhjsYD7NJa8yHkapMFu1JIR0M1PQDwZzMIDCmhPBUNU6kzLJy8-3_ioR4Y/pub?gid=1189680617&single=true&output=csv"
 
-# Strict display order for MLB rosters (DraftKings Standard)
 POS_ORDER = {
     'P1': 0, 'P2': 1, 'C': 2, '1B': 3, '2B': 4,
     '3B': 5, 'SS': 6, 'OF1': 7, 'OF2': 8, 'OF3': 9
@@ -36,7 +35,7 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                   exposure_limit=1.0, weather_data={}):
     df = df_input.copy()
 
-    # Filter out players from excluded games
+    # 1. Filter Excluded Games
     if excluded_games:
         df = df[~df.apply(lambda r: " vs ".join(sorted([TEAM_MAP.get(str(r['Team']), str(r['Team'])),
                                                         TEAM_MAP.get(str(r['Opponent']),
@@ -66,10 +65,12 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
             elif order <= 5:
                 proj *= 1.10
 
+            # Handedness Advantage
             b_h, o_h = row.get('CleanHand', '?'), p_hand_map.get(row['Opponent'], '?')
             if b_h == 'S' or (b_h == 'L' and o_h == 'R') or (b_h == 'R' and o_h == 'L'):
                 proj *= 1.15
 
+            # Weather Adjustments
             wind, cond = str(w['wind']).lower(), str(w['condition']).lower()
             if "dome" not in cond and "closed" not in cond:
                 try:
@@ -88,6 +89,8 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
         return proj * random.uniform(0.98, 1.02)
 
     df['Solver_Proj'] = df.apply(apply_logic, axis=1)
+
+    # Stacking Logic Prep
     teams_to_stack = [stack_team] if stack_team and stack_team != "None" else \
         df[~df['POS'].str.contains('P')].groupby('Team')['Solver_Proj'].mean().sort_values(ascending=False).head(
             10).index.tolist()
@@ -95,18 +98,25 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
     for i in range(num_lineups):
         best_lineup, highest_score = None, -1
         random.shuffle(teams_to_stack)
+
         for current_team in teams_to_stack[:4]:
             try:
                 prob = pulp.LpProblem(f"MLB_{i}_{current_team}", pulp.LpMaximize)
                 players, slots = df.index.tolist(), list(POS_ORDER.keys())
                 x = pulp.LpVariable.dicts("x", (players, slots), cat="Binary")
+
+                # Objective: Maximize Projections
                 prob += pulp.lpSum([df.loc[p, 'Solver_Proj'] * x[p][s] for p in players for s in slots])
+
+                # Constraints
                 prob += pulp.lpSum([df.loc[p, 'Salary'] * x[p][s] for p in players for s in slots]) <= 50000
                 for s in slots: prob += pulp.lpSum([x[p][s] for p in players]) == 1
                 for p in players:
                     prob += pulp.lpSum([x[p][s] for s in slots]) <= 1
                     if df.loc[p, 'Player'] in locks: prob += pulp.lpSum([x[p][s] for s in slots]) == 1
                     if player_usage.get(p, 0) >= max_count: prob += pulp.lpSum([x[p][s] for s in slots]) == 0
+
+                    # Position Logic
                     pos = str(df.loc[p, 'POS'])
                     for s in slots:
                         valid = any([(s.startswith('P') and 'P' in pos), (s == 'C' and 'C' in pos),
@@ -114,12 +124,18 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                                      (s == '3B' and '3B' in pos), (s == 'SS' and 'SS' in pos),
                                      (s.startswith('OF') and 'OF' in pos)])
                         if not valid: prob += x[p][s] == 0
+
+                # Diversity Constraint
                 for past in used_player_indices:
                     prob += pulp.lpSum([x[p][s] for p in past for s in slots]) <= (len(slots) - diversity)
+
+                # Stack Constraint
                 h_idx = df[(df['Team'] == current_team) & (~df['POS'].str.contains('P'))].index.tolist()
                 if len(h_idx) >= int(min_stack) and int(min_stack) > 0:
                     prob += pulp.lpSum([x[p][s] for p in h_idx for s in slots]) >= int(min_stack)
+
                 prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=4))
+
                 if pulp.LpStatus[prob.status] == 'Optimal':
                     score = pulp.value(prob.objective)
                     if score > highest_score:
@@ -143,6 +159,7 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                                        'total_projection': round(t_proj, 2), 'indices': p_indices}
             except:
                 continue
+
         if best_lineup:
             all_results.append(best_lineup);
             used_player_indices.append(best_lineup['indices'])
@@ -154,13 +171,16 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
 
 @mlb_bp.route('/', methods=['GET', 'POST'])
 def index():
+    # 1. Fetch External Data
     weather_info = get_mlb_weather_data()
     game_data = get_espn_game_info()
     h_fg, p_fg = get_weighted_stats()
 
+    # 2. Process CSV
     df_raw = pd.read_csv(SALARY_CSV)
     df_raw.columns = df_raw.columns.str.strip()
 
+    # Map CSV Columns
     sal_col = next((c for c in ['Salary', 'salary', 'Sal'] if c in df_raw.columns), 'Salary')
     proj_col = next((c for c in ['Projected Points', 'Proj', 'FPTS'] if c in df_raw.columns), None)
     order_col = next((c for c in ['Batting Order', 'Order'] if c in df_raw.columns), None)
@@ -172,6 +192,7 @@ def index():
     df_raw['Order'] = pd.to_numeric(df_raw[order_col], errors='coerce').fillna(0).astype(int) if order_col else 0
     df_raw['CleanHand'] = df_raw[hand_col].apply(clean_hand_str) if hand_col else '?'
 
+    # 3. Statistical Merging (Fuzzy Match)
     for col in ['Edge_Value', 'Chalk_Quality', 'ISO', 'wRC+', 'WHIP', 'HR/9', 'K/9', 'GS']: df_raw[col] = 0.0
     h_choices, p_choices = h_fg['full_name'].tolist(), p_fg['full_name'].tolist()
 
@@ -185,14 +206,16 @@ def index():
             cols = ['Chalk_Quality', 'WHIP', 'HR/9', 'K/9', 'GS'] if is_pitcher else ['Edge_Value', 'ISO', 'wRC+']
             for c in cols: df_raw.at[idx, c] = s_row[c]
 
-    p_hand_map = df_raw[df_raw['POS'].str.contains('P')].set_index('Team')['CleanHand'].to_dict()
-    pool_list = []
+    # 4. Build Player Pool & Game List
+    pool_list, unique_games = [], {}
     for _, r in df_raw.iterrows():
         t1, t2 = TEAM_MAP.get(str(r['Team']), str(r['Team'])), TEAM_MAP.get(str(r['Opponent']), str(r['Opponent']))
         g_id = " vs ".join(sorted([t1, t2]))
+
+        # Meta Info
         info = game_data.get(g_id)
-        matchup_str = f"vs {r['Opponent']}" if (info and r['Team'] == info['home_team']) else f"@ {r['Opponent']}"
         w = weather_info.get(g_id, {'temp': '--', 'wind': 'Calm', 'condition': 'Unknown'})
+        matchup_str = f"vs {r['Opponent']}" if (info and r['Team'] == info['home_team']) else f"@ {r['Opponent']}"
 
         p_data = r.to_dict()
         p_data.update({
@@ -205,21 +228,23 @@ def index():
         })
         pool_list.append(p_data)
 
-    unique_games = {}
-    confirmed = set(df_raw[df_raw['Order'] > 0]['Team'].unique())
-    for _, r in df_raw.iterrows():
-        t1, t2 = TEAM_MAP.get(str(r['Team']), str(r['Team'])), TEAM_MAP.get(str(r['Opponent']), str(r['Opponent']))
-        g_id = " vs ".join(sorted([t1, t2]))
         if g_id not in unique_games:
             time_d = game_data.get(g_id,
                                    {'display': f"{t1} vs {t2}", 'raw_time': datetime.max.replace(tzinfo=pytz.utc)})
-            w = weather_info.get(g_id, {'temp': '--', 'condition': 'Unknown'})
             unique_games[g_id] = {
                 'id': g_id, 'display': time_d.get('display', g_id), 'time': time_d.get('time_str', 'TBD'),
                 'sort': time_d.get('raw_time'), 'weather': f"{w['temp']}° {w['condition']}"
             }
 
     game_list = sorted(unique_games.values(), key=lambda x: x['sort'])
+
+    # --- DYNAMIC SEO LOGIC ---
+    sorted_pool = sorted(pool_list, key=lambda x: x['Proj'], reverse=True)
+    top_p = next((p['Player'] for p in sorted_pool if 'P' in str(p['POS'])), "Elite Pitchers")
+    top_h = next((p['Player'] for p in sorted_pool if 'P' not in str(p['POS'])), "Top Hitters")
+    dynamic_stars = f"{top_p}, {top_h}"
+    dynamic_matchups = ", ".join([g['display'] for g in game_list[:3]])
+
     results, status = None, "SYSTEMS LIVE"
 
     if request.method == 'POST':
@@ -238,7 +263,6 @@ def index():
         )
         status = f"OPTIMIZED {len(results)} LINEUPS" if results else "SOLVER FAILED"
 
-    # REDIRECT TO sport_mlb.html AND PASS COMMAND CENTER DATA
     return render_template(
         'sport_mlb.html',
         results=results,
@@ -246,5 +270,7 @@ def index():
         sport="MLB",
         teams=sorted(df_raw['Team'].dropna().unique()),
         games=game_list,
-        pool=pool_list
+        pool=pool_list,
+        top_stars=dynamic_stars,  # SEO Variable
+        matchups=dynamic_matchups  # SEO Variable
     )
