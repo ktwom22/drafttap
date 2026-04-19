@@ -2,28 +2,28 @@ from flask import Blueprint, render_template, request
 import pandas as pd
 import pulp
 import random
-from helpers.nba_helpers import get_nba_logo_url
+import math
+# Added get_dynamic_espn_ids and get_player_headshot_url to imports
+from helpers.nba_helpers import (
+    get_nba_logo_url,
+    get_nba_matchup_info,
+    get_dynamic_espn_ids,
+    get_player_headshot_url
+)
 
 nba_bp = Blueprint('nba', __name__, url_prefix='/nba')
 
 # --- CONFIGURATION ---
 NBA_SALARY_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTF0d2pT0myrD7vjzsB2IrEzMa3o1lylX5_GYyas_5UISsgOud7WffGDxSVq6tJhS45UaxFOX_FolyT/pub?gid=2055904356&single=true&output=csv"
 
-# DraftKings NBA Standard Roster Slots
 NBA_SLOTS = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F', 'UTIL']
-SLOT_ORDER = {
-    'PG': 0, 'SG': 1, 'SF': 2, 'PF': 3,
-    'C': 4, 'G': 5, 'F': 6, 'UTIL': 7
-}
-
+SLOT_ORDER = {'PG': 0, 'SG': 1, 'SF': 2, 'PF': 3, 'C': 4, 'G': 5, 'F': 6, 'UTIL': 7}
 
 def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limit=0.4, locks=[], excluded_games=[]):
     all_results, used_indices = [], []
 
-    # Filter Excluded Games
     if excluded_games:
-        df = df[
-            ~df.apply(lambda r: " vs ".join(sorted([str(r['Team']), str(r['Opponent'])])) in excluded_games, axis=1)]
+        df = df[~df.apply(lambda r: " vs ".join(sorted([str(r['Team']), str(r['Opponent'])])) in excluded_games, axis=1)]
 
     player_usage = {p: 0 for p in df.index}
     max_use = max(1, int(num_lineups * exposure_limit))
@@ -33,16 +33,12 @@ def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
         players = df.index.tolist()
         x = pulp.LpVariable.dicts("x", (players, NBA_SLOTS), cat="Binary")
 
-        # Objective: Maximize Projection (with small randomness for variety)
-        prob += pulp.lpSum(
-            [(df.loc[p, 'Proj'] * random.uniform(0.99, 1.01)) * x[p][s] for p in players for s in NBA_SLOTS])
+        prob += pulp.lpSum([(df.loc[p, 'Proj'] * random.uniform(0.99, 1.01)) * x[p][s] for p in players for s in NBA_SLOTS])
 
-        # Punt play constraint (< $4k)
         punt_players = [p for p in players if df.loc[p, 'Salary'] < 4000]
         if punt_players and min_punts > 0:
             prob += pulp.lpSum([x[p][s] for p in punt_players for s in NBA_SLOTS]) >= min_punts
 
-        # Salary Cap & Lineup Size
         prob += pulp.lpSum([df.loc[p, 'Salary'] * x[p][s] for p in players for s in NBA_SLOTS]) <= 50000
         for s in NBA_SLOTS:
             prob += pulp.lpSum([x[p][s] for p in players]) == 1
@@ -52,21 +48,12 @@ def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
             if df.loc[p, 'Player'] in locks: prob += pulp.lpSum([x[p][s] for s in NBA_SLOTS]) == 1
             if player_usage.get(p, 0) >= max_use: prob += pulp.lpSum([x[p][s] for s in NBA_SLOTS]) == 0
 
-            # Position Eligibility Logic
             pos = str(df.loc[p, 'POS'])
             for s in NBA_SLOTS:
-                valid = False
-                if s == 'UTIL':
-                    valid = True
-                elif s == 'G':
-                    valid = any(g in pos for g in ['PG', 'SG'])
-                elif s == 'F':
-                    valid = any(f in pos for f in ['SF', 'PF'])
-                elif s in pos:
-                    valid = True
+                valid = (s == 'UTIL') or (s == 'G' and any(g in pos for g in ['PG', 'SG'])) or \
+                        (s == 'F' and any(f in pos for f in ['SF', 'PF'])) or (s in pos)
                 if not valid: prob += x[p][s] == 0
 
-        # Diversity Constraint
         for past in used_indices:
             prob += pulp.lpSum([x[p][s] for p in past for s in NBA_SLOTS]) <= (8 - diversity)
 
@@ -78,10 +65,9 @@ def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
                 for s in NBA_SLOTS:
                     if pulp.value(x[p][s]) == 1:
                         row = df.loc[p]
-                        lineup_players.append(
-                            {'Slot': s, 'Name': row['Player'], 'Team': row['Team'], 'Salary': row['Salary']})
-                        p_indices.append(p);
-                        t_sal += row['Salary'];
+                        lineup_players.append({'Slot': s, 'Name': row['Player'], 'Team': row['Team'], 'Salary': row['Salary']})
+                        p_indices.append(p)
+                        t_sal += row['Salary']
                         t_proj += row['Proj']
 
             lineup_players.sort(key=lambda x: SLOT_ORDER.get(x['Slot'], 99))
@@ -95,7 +81,6 @@ def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
             break
     return all_results
 
-
 @nba_bp.route('/', methods=['GET', 'POST'])
 def index():
     try:
@@ -105,8 +90,9 @@ def index():
 
     df.columns = df.columns.str.strip()
 
-    # Column Mapping & Cleaning
+    # Column Mapping
     name_col = next((c for c in ['Name', 'Player', 'Alt Name'] if c in df.columns), 'Name')
+    id_col = next((c for c in ['ESPN_ID', 'id', 'Player_ID'] if c in df.columns), None)
     proj_col = next((c for c in ['Projected Points', 'Proj', 'FPTS'] if c in df.columns), None)
     sal_col = next((c for c in ['Salary', 'salary', 'Sal'] if c in df.columns), 'Salary')
     pos_col = next((c for c in ['POS', 'Pos'] if c in df.columns), 'POS')
@@ -116,39 +102,55 @@ def index():
 
     df = df.dropna(subset=[name_col])
     df['Player'] = df[name_col].astype(str).str.replace('&nbsp;Q', '').str.replace(' Q', '').str.strip()
-    df['Team'] = df[team_col].astype(str)
-    df['Opponent'] = df[opp_col].astype(str)
-    df['Start_Time'] = df[start_col].astype(str).replace('nan', 'TBD')
+    df['Team'] = df[team_col].astype(str).str.upper()
+    df['Opponent'] = df[opp_col].astype(str).str.upper()
     df['Salary'] = pd.to_numeric(df[sal_col].astype(str).replace(r'[\$,kK]', '', regex=True), errors='coerce').fillna(0)
     if df['Salary'].max() < 1000: df['Salary'] *= 1000
     df['Proj'] = pd.to_numeric(df[proj_col], errors='coerce').fillna(0) if proj_col else 0.0
     df['POS'] = df[pos_col].fillna('UTIL')
 
-    # Build Player Pool & Game Lists
+    # --- DYNAMIC LOOKUP LOGIC ---
+    # Fetch live IDs from ESPN API to fill in missing CSV data
+    dynamic_id_map = get_dynamic_espn_ids()
+
     pool_list, unique_games, seen_games = [], [], set()
     for _, r in df.iterrows():
         val_score = round(r['Proj'] / (r['Salary'] / 1000), 2) if r['Salary'] > 0 else 0
+        match_str = get_nba_matchup_info(r)
+
+        # 1. Try to get ID from CSV first
+        try:
+            raw_id = r[id_col] if id_col and pd.notna(r[id_col]) else 0
+            clean_id = str(int(float(raw_id)))
+        except:
+            clean_id = "0"
+
+        # 2. If CSV ID is missing (0), check the Dynamic Map by Player Name
+        if clean_id == "0":
+            clean_id = dynamic_id_map.get(r['Player'], "0")
+
+        # 3. Use the standardized helper to get the final URL
+        img_url = get_player_headshot_url(clean_id)
+
         pool_list.append({
             'Player': r['Player'], 'POS': r['POS'], 'Team': r['Team'], 'Opponent': r['Opponent'],
             'Proj': round(r['Proj'], 1), 'Salary': int(r['Salary']),
-            'Logo': get_nba_logo_url(r['Team']), 'Match_Display': f"{r['Team']} @ {r['Opponent']}",
-            'Primary_Stat': f"VAL: {val_score}x", 'Secondary_Stat': f"TIP: {r['Start_Time']}"
+            'Logo': get_nba_logo_url(r['Team']),
+            'Player_Image': img_url,
+            'Match_Display': match_str,
+            'Primary_Stat': f"VAL: {val_score}x",
+            'Secondary_Stat': f"TIP: {r.get(start_col, 'TBD')}"
         })
+
         g_id = " vs ".join(sorted([str(r['Team']), str(r['Opponent'])]))
         if g_id not in seen_games:
-            unique_games.append({'id': g_id, 'display': f"{r['Team']} @ {r['Opponent']}", 'time': r['Start_Time']})
+            unique_games.append({'id': g_id, 'display': match_str})
             seen_games.add(g_id)
 
-    # --- DYNAMIC SEO LOGIC ---
-    sorted_pool = sorted(pool_list, key=lambda x: x['Proj'], reverse=True)
-    dynamic_stars = ", ".join([p['Player'] for p in sorted_pool[:3]])
-    dynamic_matchups = ", ".join([g['display'] for g in unique_games[:3]])
-
-    results, status = None, "NBA SYSTEMS ONLINE"
-
+    results = None
     if request.method == 'POST':
         num = int(request.form.get('num_lineups', 10))
-        div = int(request.form.get('diversity', 3))
+        div = int(request.form.get('diversity', 4))
         punts = int(request.form.get('min_punts', 1))
         exp = float(request.form.get('exposure_limit', 0.4))
         locks = request.form.getlist('player_locks')
@@ -159,7 +161,6 @@ def index():
 
         results = run_nba_optimizer(df, num_lineups=num, diversity=div, min_punts=punts,
                                     exposure_limit=exp, locks=locks, excluded_games=excluded)
-        status = f"OPTIMIZED {len(results)} LINEUPS" if results else "INFEASIBLE SLATE"
 
     return render_template(
         'sport_nba.html',
@@ -167,7 +168,5 @@ def index():
         pool=pool_list,
         sport="NBA",
         games=unique_games,
-        status=status,
-        top_stars=dynamic_stars,  # SEO Variable
-        matchups=dynamic_matchups  # SEO Variable
+        status=f"OPTIMIZED {len(results)} LINEUPS" if results else "NBA SYSTEMS ONLINE"
     )
