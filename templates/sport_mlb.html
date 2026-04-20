@@ -116,7 +116,7 @@
             border: 1px solid var(--border-heavy);
             display: flex; align-items: center; justify-content: center;
             overflow: hidden;
-            transform: translateZ(0); /* Anti-flicker hardware acceleration */
+            transform: translateZ(0);
         }
 
         .player-headshot {
@@ -273,21 +273,35 @@
                                 <span class="fw-bold" style="color: var(--tap-gold);">{{ lineup.total_projection }} <small style="color:#fff;">FPTS</small></span>
                             </div>
                             <table class="table table-dark table-sm mb-0">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--border-heavy); font-size: 8px; text-transform: uppercase; color: var(--text-dim);">
+                                        <th class="ps-3 py-1">Slot</th>
+                                        <th class="py-1">Ord</th>
+                                        <th class="py-1">Player</th>
+                                        <th class="text-end pe-3 py-1">Salary</th>
+                                    </tr>
+                                </thead>
                                 <tbody>
                                    {% for pl in lineup.players %}
                                     <tr>
                                         <td class="ps-3 py-2"><div class="slot-badge">{{ pl.Slot }}</div></td>
+
+                                        <td class="py-2">
+                                            <span style="font-family: 'JetBrains Mono'; font-size: 10px; color: var(--text-dim);">
+                                                {% if pl.Order and pl.Order > 0 %}{{ pl.Order }}{% else %}-{% endif %}
+                                            </span>
+                                        </td>
+
                                         <td class="py-2">
                                             <div class="d-flex align-items-center">
-                                                <img src="{{ pl.Logo }}" style="width: 16px; height: 16px; margin-right: 8px; object-fit: contain;">
+                                                <img src="{{ pl.Logo }}" style="width: 14px; height: 14px; margin-right: 8px; object-fit: contain;">
 
                                                 <div>
-                                                    <div class="fw-bold" style="font-size: 11px;">
-                                                        {% if pl.Order and pl.Order > 0 %}{{ pl.Order }}. {% endif %}{{ pl.Name }}
-
+                                                    <div class="fw-bold" style="font-size: 11px; line-height: 1.1;">
+                                                        {{ pl.Name }}
                                                         <small class="ms-1" style="color: var(--ice-blue); font-family: 'JetBrains Mono'; font-size: 9px;">
-                                                            {% if pl.Hand %}
-                                                                {% if 'L' in pl.Hand %}LVR{% elif 'R' in pl.Hand %}RVL{% endif %}
+                                                            {% if 'L' in pl.Hand|string %}LVR
+                                                            {% elif 'R' in pl.Hand|string %}RVL
                                                             {% endif %}
                                                         </small>
                                                     </div>
@@ -295,12 +309,12 @@
                                                 </div>
                                             </div>
                                         </td>
+
                                         <td class="text-end pe-3 py-2" style="font-size: 10px; color: var(--tap-gold); font-family: 'JetBrains Mono';">${{ "{:,.0f}".format(pl.Salary) }}</td>
                                     </tr>
-
                                     {% endfor %}
                                     <tr style="border-top: 1px solid var(--border-heavy); background: #000;">
-                                        <td colspan="2" class="ps-3 py-2 small text-uppercase text-dim" style="font-size: 9px;">Total Salary</td>
+                                        <td colspan="3" class="ps-3 py-2 small text-uppercase text-dim" style="font-size: 9px;">Total Salary</td>
                                         <td class="text-end pe-3 py-2 fw-bold text-white">${{ "{:,.0f}".format(lineup.total_salary) }}</td>
                                     </tr>
                                 </tbody>
@@ -317,12 +331,10 @@
 </div>
 
 <script>
-    // Handle Loading State
     document.getElementById('opt-form').addEventListener('submit', function() {
         document.getElementById('loading-overlay').style.display = 'flex';
     });
 
-    // Forced Jump Logic
     document.addEventListener("DOMContentLoaded", function() {
         const resultsAnchor = document.getElementById('results-anchor');
         if (resultsAnchor) {
