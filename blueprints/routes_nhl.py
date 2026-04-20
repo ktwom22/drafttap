@@ -14,15 +14,16 @@ nhl_bp = Blueprint('nhl', __name__, url_prefix='/nhl')
 
 # --- CONFIGURATION ---
 NHL_SALARY_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRcEmUjeqWwtnYJFyT1T8CFRWR-sd-NEPZv4rZZ-BK8Rx3CYtWhDHb9ZbNMhkiaExaPHeqt-eoPNH2-/pub?gid=1627698462&single=true&output=csv"
-
 NHL_SLOTS = ['C1', 'C2', 'W1', 'W2', 'W3', 'D1', 'D2', 'G', 'UTIL']
 SLOT_ORDER = {'C1': 0, 'C2': 1, 'W1': 2, 'W2': 3, 'W3': 4, 'D1': 5, 'D2': 6, 'G': 7, 'UTIL': 8}
 
 
-def run_nhl_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limit=0.4, locks=[], excluded_games=[],
+def run_nhl_optimizer(df, num_lineups=1, diversity=3, exposure_limit=0.4, locks=[], excluded_games=[],
                       stack_config=None):
     all_results, used_indices = [], []
 
+    # 1. Pre-filter and Exclude
+    df = df[df['Proj'] > 0].copy()
     if excluded_games:
         df = df[
             ~df.apply(lambda r: " vs ".join(sorted([str(r['Team']), str(r['Opponent'])])) in excluded_games, axis=1)]
@@ -35,23 +36,27 @@ def run_nhl_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
         players = df.index.tolist()
         x = pulp.LpVariable.dicts("x", (players, NHL_SLOTS), cat="Binary")
 
+        # Objective with slight variance
         prob += pulp.lpSum(
             [(df.loc[p, 'Proj'] * random.uniform(0.97, 1.03)) * x[p][s] for p in players for s in NHL_SLOTS])
 
+        # Salary Cap
         prob += pulp.lpSum([df.loc[p, 'Salary'] * x[p][s] for p in players for s in NHL_SLOTS]) <= 50000
 
+        # Fill all slots
         for s in NHL_SLOTS:
             prob += pulp.lpSum([x[p][s] for p in players]) == 1
 
         for p in players:
             prob += pulp.lpSum([x[p][s] for s in NHL_SLOTS]) <= 1
+
+            # Locks & Exposure
             if df.loc[p, 'Player'] in locks:
                 prob += pulp.lpSum([x[p][s] for s in NHL_SLOTS]) == 1
-
-            # Exposure Constraint
-            if player_usage.get(p, 0) >= max_use:
+            elif player_usage.get(p, 0) >= max_use:
                 prob += pulp.lpSum([x[p][s] for s in NHL_SLOTS]) == 0
 
+            # NHL Positional Logic
             pos = str(df.loc[p, 'POS']).upper()
             for s in NHL_SLOTS:
                 if s == 'G':
@@ -59,8 +64,18 @@ def run_nhl_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
                 elif s == 'UTIL':
                     if 'G' in pos: prob += x[p][s] == 0
                 else:
+                    # Matches 'C' to 'C1/C2', 'W' to 'W1/W2/W3', 'D' to 'D1/D2'
                     if s[0] not in pos: prob += x[p][s] == 0
 
+        # Anti-Correlation: Don't play skaters against your starting Goalie
+        for p in players:
+            if 'G' in str(df.loc[p, 'POS']):
+                opp = df.loc[p, 'Opponent']
+                opp_skaters = df[(df['Team'] == opp) & (~df['POS'].str.contains('G'))].index.tolist()
+                for skater_idx in opp_skaters:
+                    prob += x[p]['G'] + pulp.lpSum([x[skater_idx][s] for s in NHL_SLOTS if s != 'G']) <= 1
+
+        # Stacking Logic (e.g. "3-2" stack)
         if stack_config and "-" in stack_config:
             sizes = [int(s) for s in stack_config.split('-')]
             teams = df['Team'].unique()
@@ -72,18 +87,11 @@ def run_nhl_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
                     prob += pulp.lpSum([x[p][s] for p in t_idx for s in NHL_SLOTS if s != 'G']) >= size * t_stack[t][
                         size]
 
-        # Goalie Anti-Correlation
-        for p in players:
-            if 'G' in str(df.loc[p, 'POS']):
-                opp = df.loc[p, 'Opponent']
-                opp_players = df[df['Team'] == opp].index.tolist()
-                for p_opp in opp_players:
-                    prob += pulp.lpSum([x[p]['G']]) + pulp.lpSum([x[p_opp][s] for s in NHL_SLOTS if s != 'G']) <= 1
-
+        # Diversity
         for past in used_indices:
             prob += pulp.lpSum([x[p][s] for p in past for s in NHL_SLOTS]) <= (len(NHL_SLOTS) - diversity)
 
-        prob.solve(pulp.PULP_CBC_CMD(msg=False, timeLimit=5))
+        prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=5))
 
         if pulp.LpStatus[prob.status] == 'Optimal':
             lineup, p_indices, t_sal, t_proj = [], [], 0, 0
@@ -91,12 +99,13 @@ def run_nhl_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
                 for s in NHL_SLOTS:
                     if pulp.value(x[p][s]) == 1:
                         row = df.loc[p]
-                        lineup.append({'Slot': s, 'Name': row['Player'], 'Team': row['Team'], 'Salary': row['Salary']})
+                        lineup.append(
+                            {'Slot': s, 'Name': row['Player'], 'Team': row['Team'], 'Salary': int(row['Salary'])})
                         p_indices.append(p)
                         t_sal += row['Salary']
                         t_proj += row['Proj']
             lineup.sort(key=lambda x: SLOT_ORDER.get(x['Slot'], 99))
-            all_results.append({'players': lineup, 'total_projection': round(t_proj, 2), 'total_salary': t_sal})
+            all_results.append({'players': lineup, 'total_projection': round(t_proj, 2), 'total_salary': int(t_sal)})
             used_indices.append(p_indices)
             for idx in p_indices: player_usage[idx] += 1
         else:
@@ -106,71 +115,76 @@ def run_nhl_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
 
 @nhl_bp.route('/', methods=['GET', 'POST'])
 def index():
-    # Cache the GET request to avoid re-parsing the CSV and fetching headshots constantly
-    # query_string=True allows specific filters to be cached independently
-    @current_app.cache.cached(timeout=300, query_string=True)
-    def cached_view():
+    def get_clean_nhl_data():
         try:
             df_raw = pd.read_csv(NHL_SALARY_CSV)
             clean_rows = []
             for _, row in df_raw.iterrows():
                 try:
+                    # Specific parsing for your NHL spreadsheet format
                     raw_str = str(row.iloc[0])
                     name_part = raw_str.split('·')[0].split('$')[0].strip()
                     name = re.sub(r'\s[A-Z]\d+$', '', name_part).strip()
 
+                    # Clean injury tags
                     for tag in ["DTD", "IR", "O", "OUT"]:
-                        if name.endswith(tag):
-                            name = name[:-len(tag)].strip()
+                        if name.endswith(tag): name = name[:-len(tag)].strip()
 
-                    salary_val = raw_str.split('$')[1].split(' ')[0].replace(',', '') if '$' in raw_str else "0"
-                    proj_val = raw_str.split('FPTS')[1].strip().split(' ')[0] if 'FPTS' in raw_str else "0"
+                    sal_str = raw_str.split('$')[1].split(' ')[0].replace(',', '') if '$' in raw_str else "0"
+                    proj_str = raw_str.split('FPTS')[1].strip().split(' ')[0] if 'FPTS' in raw_str else "0"
+
+                    salary = float(sal_str)
+                    if salary < 1000: salary *= 1000  # Handle 9.5k vs 9500
 
                     clean_rows.append({
                         'Player': name,
                         'POS': str(row.iloc[1]).upper().strip(),
-                        'Salary': float(salary_val) * (1000 if float(salary_val) < 1000 else 1),
-                        'Proj': float(proj_val),
+                        'Salary': salary,
+                        'Proj': float(proj_str),
                         'Team': str(row.iloc[4]).upper().strip(),
                         'Opponent': str(row.iloc[5]).upper().strip()
                     })
                 except:
                     continue
-            df = pd.DataFrame(clean_rows)
-        except Exception as e:
-            return f"Error loading data: {e}"
+            return pd.DataFrame(clean_rows)
+        except:
+            return pd.DataFrame()
 
-        dynamic_id_map = get_dynamic_nhl_ids()
-        pool_list, unique_games, seen_games = [], [], set()
+    df = get_clean_nhl_data()
+    if df.empty: return "Error loading NHL data."
 
-        for _, r in df.iterrows():
-            match_str = get_nhl_matchup_info(r)
-            pool_list.append({
-                'Player': r['Player'], 'POS': r['POS'], 'Team': r['Team'], 'Opponent': r['Opponent'],
-                'Proj': r['Proj'], 'Salary': int(r['Salary']),
-                'Logo': get_nhl_logo_url(r['Team']),
-                'Player_Image': get_nhl_headshot_url(r['Player'], dynamic_id_map),
-                'Match_Display': match_str
-            })
-            g_id = " vs ".join(sorted([r['Team'], r['Opponent']]))
-            if g_id not in seen_games:
-                unique_games.append({'id': g_id, 'display': match_str})
-                seen_games.add(g_id)
+    # UI Mapping
+    dynamic_id_map = get_dynamic_nhl_ids()
+    pool_list, unique_games, seen_games = [], [], set()
 
-        results = None
-        if request.method == 'POST':
-            num = int(request.form.get('num_lineups', 10))
-            div = int(request.form.get('diversity', 3))
-            locks = request.form.getlist('player_locks')
-            stack = request.form.get('stack_config', '')
-            sel_games = request.form.getlist('games')
+    for _, r in df.iterrows():
+        match_str = get_nhl_matchup_info(r)
+        pool_list.append({
+            'Player': r['Player'], 'POS': r['POS'], 'Team': r['Team'],
+            'Opponent': r['Opponent'], 'Proj': r['Proj'], 'Salary': int(r['Salary']),
+            'Logo': get_nhl_logo_url(r['Team']),
+            'Player_Image': get_nhl_headshot_url(r['Player'], dynamic_id_map),
+            'Match_Display': match_str
+        })
+        g_id = " vs ".join(sorted([r['Team'], r['Opponent']]))
+        if g_id not in seen_games:
+            unique_games.append({'id': g_id, 'display': match_str})
+            seen_games.add(g_id)
 
-            all_ids = [g['id'] for g in unique_games]
-            excluded = [gid for gid in all_ids if gid not in sel_games]
+    results = None
+    if request.method == 'POST':
+        num = int(request.form.get('num_lineups', 10))
+        div = int(request.form.get('diversity', 3))
+        exp = float(request.form.get('exposure_limit', 0.4))
+        locks = request.form.getlist('player_locks')
+        stack = request.form.get('stack_config', '')
+        sel_games = request.form.getlist('games')
 
-            results = run_nhl_optimizer(df, num_lineups=num, diversity=div, locks=locks,
-                                        excluded_games=excluded, stack_config=stack)
+        all_ids = [g['id'] for g in unique_games]
+        excluded = [gid for gid in all_ids if gid not in sel_games]
 
-        return render_template('sport_nhl.html', results=results, pool=pool_list, sport="NHL", games=unique_games)
+        results = run_nhl_optimizer(df, num_lineups=num, diversity=div, exposure_limit=exp,
+                                    locks=locks, excluded_games=excluded, stack_config=stack)
 
-    return cached_view()
+    return render_template('sport_nhl.html', sport="NHL", results=results, pool=pool_list,
+                           games=unique_games, status=f"READY: {len(df)} PLAYERS")

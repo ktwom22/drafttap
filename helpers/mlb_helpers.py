@@ -33,6 +33,8 @@ TEAM_ID_MAP = {
 }
 
 
+# --- UTILITIES ---
+
 def clean_float(val, default=0.0):
     if val is None or str(val).strip() in ['-.--', '---', '-', '']: return default
     try:
@@ -53,6 +55,8 @@ def get_logo_url(team_abbr):
     tid = TEAM_ID_MAP.get(clean_abbr)
     return f"https://www.mlbstatic.com/team-logos/team-cap-on-light/{tid}.svg" if tid else "https://www.mlbstatic.com/team-logos/league/1.svg"
 
+
+# --- DATA FETCHING ---
 
 def fetch_pitcher_metrics(year):
     try:
@@ -94,18 +98,24 @@ def get_weighted_stats():
     global _STATS_CACHE
     if _STATS_CACHE['h'] is not None and (time.time() - _STATS_CACHE['time']) < 3600:
         return _STATS_CACHE['h'], _STATS_CACHE['p']
+
     W_PREV, W_CURR = 0.7, 0.3
     p25, p26 = fetch_pitcher_metrics(2025), fetch_pitcher_metrics(2026)
+
     blended_p = []
     for name in set(p25.keys()) | set(p26.keys()):
         s25, s26 = p25.get(name), p26.get(name)
         blend = lambda k, d: (s25[k] * W_PREV + s26[k] * W_CURR) if (s25 and s26 and k in s25 and k in s26) else (
             s26[k] if s26 else (s25[k] if s25 else d))
         k9, kbb, whip = blend('K9', 7.5), blend('K_BB', 2.5), blend('WHIP', 1.35)
-        blended_p.append({'norm_name': name, 'full_name': s26['full_name'] if s26 else s25['full_name'],
-                          'Chalk_Quality': round(max(0.1, (k9 * 0.5 + kbb * 0.5 - whip * 2.0)), 2),
-                          'WHIP': round(whip, 2), 'K/9': round(k9, 2), 'HR/9': blend('HR9', 1.2),
-                          'GS': s26['GS'] if s26 else (s25['GS'] if s25 else 0)})
+        blended_p.append({
+            'norm_name': name,
+            'full_name': s26['full_name'] if s26 else s25['full_name'],
+            'Chalk_Quality': round(max(0.1, (k9 * 0.5 + kbb * 0.5 - whip * 2.0)), 2),
+            'WHIP': round(whip, 2), 'K/9': round(k9, 2), 'HR/9': blend('HR9', 1.2),
+            'GS': s26['GS'] if s26 else (s25['GS'] if s25 else 0)
+        })
+
     h25, h26 = fetch_hitter_metrics(2025), fetch_hitter_metrics(2026)
     blended_h = []
     for name in set(h25.keys()) | set(h26.keys()):
@@ -113,9 +123,14 @@ def get_weighted_stats():
         blend = lambda k, d: (s25[k] * W_PREV + s26[k] * W_CURR) if (s25 and s26 and k in s25 and k in s26) else (
             s26[k] if s26 else (s25[k] if s25 else d))
         iso = blend('ISO', 0.150)
-        blended_h.append(
-            {'norm_name': name, 'full_name': s26['full_name'] if s26 else s25['full_name'], 'ISO': round(iso, 3),
-             'wRC+': int(blend('wRC_proxy', 100)), 'Edge_Value': round(iso * 400, 2)})
+        blended_h.append({
+            'norm_name': name,
+            'full_name': s26['full_name'] if s26 else s25['full_name'],
+            'ISO': round(iso, 3),
+            'wRC+': int(blend('wRC_proxy', 100)),
+            'Edge_Value': round(iso * 400, 2)
+        })
+
     h_df, p_df = pd.DataFrame(blended_h), pd.DataFrame(blended_p)
     _STATS_CACHE.update({'h': h_df, 'p': p_df, 'time': time.time()})
     return h_df, p_df
@@ -123,6 +138,7 @@ def get_weighted_stats():
 
 def get_mlb_weather_data():
     weather_map = {}
+    # Internal map for weather processing
     api_to_abbr = {v: k for k, v in {
         "ARI": "Arizona Diamondbacks", "ATL": "Atlanta Braves", "BAL": "Baltimore Orioles",
         "BOS": "Boston Red Sox", "CHC": "Chicago Cubs", "CWS": "Chicago White Sox", "CIN": "Cincinnati Reds",
@@ -137,28 +153,20 @@ def get_mlb_weather_data():
     }.items()}
 
     try:
-        # Fetching current schedule
         games = statsapi.schedule(date=datetime.now(pytz.timezone('US/Eastern')).strftime('%Y-%m-%d'))
         for g in games:
             a, h = api_to_abbr.get(g['away_name']), api_to_abbr.get(g['home_name'])
             if not a or not h: continue
-
             gid = " vs ".join(sorted([a, h]))
-
-            # This is the "Slow" but accurate call.
             det = statsapi.get('game', {'gamePk': g['game_id']})
             game_data = det.get('gameData', {})
             w_obj = game_data.get('weather', {})
-
-            # Extract raw wind string
             raw_wind = w_obj.get('wind', '')
 
-            # --- THE FALLBACK LOGIC ---
             if not raw_wind or "0 mph" in raw_wind:
                 speed, direction = "--", "Calm/TBD"
             else:
                 try:
-                    # Regex: Find first number for speed, then everything after the comma for direction
                     s_match = re.search(r'(\d+)', raw_wind)
                     d_match = re.search(r',\s*(.*)', raw_wind)
                     speed = s_match.group(1) if s_match else "0"
@@ -191,8 +199,39 @@ def get_espn_game_info():
             h, a = TEAM_MAP.get(home_raw, home_raw), TEAM_MAP.get(away_raw, away_raw)
             lookup_id = " vs ".join(sorted([h, a]))
             utc = datetime.strptime(e['date'], "%Y-%m-%dT%H:%MZ").replace(tzinfo=pytz.utc)
-            game_info[lookup_id] = {'display': f"{a} @ {h}", 'raw_time': utc, 'home_team': h, 'away_team': a,
-                                    'time_str': utc.astimezone(pytz.timezone('US/Eastern')).strftime('%I:%M %p')}
+            game_info[lookup_id] = {
+                'display': f"{a} @ {h}",
+                'raw_time': utc,
+                'home_team': h,
+                'away_team': a,
+                'time_str': utc.astimezone(pytz.timezone('US/Eastern')).strftime('%I:%M %p')
+            }
     except:
         pass
     return game_info
+
+
+# --- SEO & AUTOMATION HELPERS ---
+
+def get_prime_matchup():
+    """Returns the top MLB matchup string for SEO Titles."""
+    try:
+        games = get_espn_game_info()
+        if not games: return "Today's MLB Slate"
+        first_game = list(games.values())[0]
+        return f"{first_game['away_team']} vs. {first_game['home_team']}"
+    except:
+        return "Premium MLB Analytics"
+
+
+def get_all_matchup_slugs():
+    """Returns a list of URL-friendly strings for all MLB games for Sitemap."""
+    slugs = []
+    try:
+        games = get_espn_game_info()
+        for g in games.values():
+            slug = f"mlb/{g['away_team'].lower()}-vs-{g['home_team'].lower()}"
+            slugs.append(slug)
+    except:
+        pass
+    return slugs

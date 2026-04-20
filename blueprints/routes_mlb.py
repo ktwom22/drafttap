@@ -11,6 +11,7 @@ from helpers.mlb_helpers import (
     get_weighted_stats,
     get_mlb_weather_data,
     get_espn_game_info,
+    get_prime_matchup,
     TEAM_MAP,
     get_logo_url
 )
@@ -18,15 +19,8 @@ from helpers.mlb_helpers import (
 mlb_bp = Blueprint('mlb', __name__, url_prefix='/mlb')
 
 SALARY_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRzCRSTDnslz-zmGESH1CFhjsYD7NJa8yHkapMFu1JIR0M1PQDwZzMIDCmhPBUNU6kzLJy8-3_ioR4Y/pub?gid=1189680617&single=true&output=csv"
-
 SLOTS = ['P1', 'P2', 'C', '1B', '2B', '3B', 'SS', 'OF1', 'OF2', 'OF3']
 POS_ORDER = {s: i for i, s in enumerate(SLOTS)}
-
-
-def clean_hand_str(h):
-    if pd.isna(h): return "?"
-    match = re.search(r'([RLS])', str(h).upper())
-    return match.group(1) if match else "?"
 
 
 def get_df_raw():
@@ -35,56 +29,69 @@ def get_df_raw():
         df = pd.read_csv(sync_url)
         df.columns = df.columns.str.strip()
 
+        # Modernized fillna logic to prevent FutureWarnings
         for col, target in [('salary', 'Salary'), ('proj', 'Proj_Base')]:
             found = next((c for c in df.columns if col in c.lower()), None)
-            df[target] = pd.to_numeric(df[found].astype(str).replace(r'[^0-9.]', '', regex=True),
-                                       errors='coerce').fillna(0.0) if found else 0.0
+            if found:
+                df[target] = pd.to_numeric(df[found].astype(str).replace(r'[^0-9.]', '', regex=True), errors='coerce')
+                df[target] = df[target].fillna(0.0)
+            else:
+                df[target] = 0.0
 
         if 0 < df['Salary'].max() < 1000: df['Salary'] *= 1000
+
+        # Set a floor for projected players
         df.loc[(df['Proj_Base'] <= 0.1) & (df['Salary'] > 0), 'Proj_Base'] = 5.0
 
+        # Handle Batting Order
         order_col = next((c for c in df.columns if any(x in c.lower() for x in ['order', 'batting', 'bat  ✓'])), None)
-        df['Order'] = df[order_col].astype(str).str.extract('(\d+)').fillna(0).astype(int) if order_col else 0
+        if order_col:
+            df['Order'] = df[order_col].astype(str).str.extract('(\d+)').fillna(0).astype(int)
+        else:
+            df['Order'] = 0
+
         df['POS'] = df['POS'].astype(str).str.upper().fillna('UTIL')
-
-        hand_col = next((c for c in df.columns if 'hand' in c.lower()), None)
-        df['CleanHand'] = df[hand_col].apply(clean_hand_str) if hand_col else '?'
-
         return df
     except Exception as e:
-        print(f"ERROR FETCHING CSV: {e}")
+        print(f"MLB CSV ERROR: {e}")
         return pd.DataFrame()
 
 
 def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=5, diversity=4, excluded_games=[]):
     df = df_input.copy()
+
+    # 1. Exclusion Logic
     if excluded_games:
         df = df[~df.apply(lambda r: " vs ".join(sorted([TEAM_MAP.get(str(r['Team']), str(r['Team'])),
                                                         TEAM_MAP.get(str(r['Opponent']),
                                                                      str(r['Opponent']))])) in excluded_games, axis=1)]
 
     all_results, used_player_indices = [], []
-    p_hand_map = df[df['POS'].str.contains('P')].set_index('Team')['CleanHand'].to_dict()
+
+    # Map Pitcher Hands for batter bonuses
+    p_hand_map = df[df['POS'].str.contains('P')].set_index('Team').get('CleanHand',
+                                                                       {}).to_dict() if 'CleanHand' in df.columns else {}
     confirmed_teams = set(df[df['Order'] > 0]['Team'].unique())
 
+    # 2. Daily Fantasy Logic (Order & Platoon bonuses)
     def apply_logic(row):
         proj = float(row['Proj_Base'])
         team, order = str(row['Team']), int(row.get('Order', 0))
+
         if 'P' in str(row['POS']):
             proj += (float(row.get('Chalk_Quality', 0)) * 0.5)
         else:
             if team in confirmed_teams:
-                if order == 0: return 0.0
+                if order == 0: return 0.0  # Player isn't in confirmed lineup
                 proj *= (1.20 if order <= 2 else 1.10 if order <= 5 else 0.95)
-            b_h, o_h = row['CleanHand'], p_hand_map.get(row['Opponent'], '?')
-            if b_h == 'S' or (b_h == 'L' and o_h == 'R') or (b_h == 'R' and o_h == 'L'):
-                proj *= 1.12
+
         return max(proj * random.uniform(0.97, 1.03), 0.1)
 
     df['Solver_Proj'] = df.apply(apply_logic, axis=1)
     eligible = df[df['Solver_Proj'] > 0.5].copy()
     if len(eligible) < 10: return []
 
+    # 3. Solver Loop
     stack_candidates = [stack_team] if (stack_team and stack_team != "None") else \
         eligible[~eligible['POS'].str.contains('P')].groupby('Team')['Solver_Proj'].mean().sort_values(
             ascending=False).head(8).index.tolist()
@@ -106,21 +113,25 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                 prob += pulp.lpSum([x[p][s] for s in SLOTS]) <= 1
                 if eligible.loc[p, 'Player'] in locks: prob += pulp.lpSum([x[p][s] for s in SLOTS]) == 1
 
+                # Specific MLB Slot Matching
                 pos = str(eligible.loc[p, 'POS'])
                 for s in SLOTS:
-                    if (s.startswith('P') and 'P' not in pos) or \
-                            (s == 'C' and 'C' not in pos) or \
-                            (s == '1B' and '1B' not in pos) or \
-                            (s == '2B' and '2B' not in pos) or \
-                            (s == '3B' and '3B' not in pos) or \
-                            (s == 'SS' and 'SS' not in pos) or \
-                            (s.startswith('OF') and not any(x in pos for x in ['OF', 'LF', 'CF', 'RF'])):
-                        prob += x[p][s] == 0
+                    valid = (s.startswith('P') and 'P' in pos) or \
+                            (s == 'C' and 'C' in pos) or \
+                            (s == '1B' and '1B' in pos) or \
+                            (s == '2B' and '2B' in pos) or \
+                            (s == '3B' and '3B' in pos) or \
+                            (s == 'SS' and 'SS' in pos) or \
+                            (s.startswith('OF') and any(pos_tag in pos for pos_tag in ['OF', 'LF', 'CF', 'RF']))
+                    if not valid: prob += x[p][s] == 0
 
-            team_hitters = eligible[(eligible['Team'] == current_team) & (~eligible['POS'].str.contains('P'))].index.tolist()
+            # Apply Stack Constraint
+            team_hitters = eligible[
+                (eligible['Team'] == current_team) & (~eligible['POS'].str.contains('P'))].index.tolist()
             if len(team_hitters) >= min_stack:
                 prob += pulp.lpSum([x[p][s] for p in team_hitters for s in SLOTS]) >= min_stack
 
+            # Diversity Logic
             for past in used_player_indices:
                 prob += pulp.lpSum([x[p][s] for p in past for s in SLOTS]) <= (len(SLOTS) - diversity)
 
@@ -136,18 +147,17 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                             if pulp.value(x[p][s]) == 1:
                                 r = eligible.loc[p]
                                 l_players.append({
-                                    'Slot': s, 'Name': r['Player'], 'Salary': r['Salary'],
+                                    'Slot': s, 'Name': r['Player'], 'Salary': int(r['Salary']),
                                     'Team': r['Team'], 'Opponent': r['Opponent'],
-                                    'Logo': get_logo_url(r['Team']), 'Opp_Logo': get_logo_url(r['Opponent']),
-                                    'Matchup_Hand': f"{r['CleanHand']} v {p_hand_map.get(r['Opponent'], '?')}",
+                                    'Logo': get_logo_url(r['Team']),
                                     'SortKey': POS_ORDER[s]
                                 })
                                 p_indices.append(p)
                                 t_sal += r['Salary']
                                 t_proj += r['Proj_Base']
                     l_players.sort(key=lambda x: x['SortKey'])
-                    best_lineup = {'players': l_players, 'total_salary': t_sal, 'total_projection': round(t_proj, 2),
-                                   'indices': p_indices}
+                    best_lineup = {'players': l_players, 'total_salary': int(t_sal),
+                                   'total_projection': round(t_proj, 2), 'indices': p_indices}
 
         if best_lineup:
             all_results.append(best_lineup)
@@ -159,68 +169,65 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
 
 @mlb_bp.route('/', methods=['GET', 'POST'])
 def index():
-    # Wrap the entire logic in a cache decorator to keep load times near-zero for repeat users
-    @current_app.cache.cached(timeout=300, query_string=True)
-    def cached_view():
-        weather = get_mlb_weather_data()
-        espn = get_espn_game_info()
-        h_fg, p_fg = get_weighted_stats()
-        df_raw = get_df_raw()
-        if df_raw.empty: return "Data Unavailable", 500
+    # 1. Basic Data Retrieval (Fresh for Post, but could be cached via helpers)
+    df_raw = get_df_raw()
+    if df_raw.empty: return "MLB Offline - Check Spreadsheet Connectivity.", 503
 
-        pool_ui, game_map = [], {}
-        for idx, row in df_raw.iterrows():
-            player_name = row.get('Player')
-            if pd.isna(player_name) or not isinstance(player_name, str) or player_name.strip() == "":
-                continue
+    # 2. Enrich Pool for UI (Weather/Stats/SEO)
+    weather = get_mlb_weather_data()
+    espn = get_espn_game_info()
+    h_fg, p_fg = get_weighted_stats()
+    dynamic_matchup = get_prime_matchup()
 
-            is_p = 'P' in str(row['POS'])
-            stats_df = p_fg if is_p else h_fg
-            choices = [str(n) for n in stats_df['full_name'].dropna().tolist()]
+    pool_ui, game_map = [], {}
+    choices_h = [str(n) for n in h_fg['full_name'].dropna().tolist()]
+    choices_p = [str(n) for n in p_fg['full_name'].dropna().tolist()]
 
-            try:
-                match = process.extractOne(player_name, choices, scorer=fuzz.token_set_ratio)
-                adv = stats_df[stats_df['full_name'] == match[0]].iloc[0] if match and match[1] >= 80 else {}
-            except Exception as e:
-                adv = {}
+    for idx, row in df_raw.iterrows():
+        name = str(row.get('Player', ''))
+        is_p = 'P' in str(row['POS'])
 
-            t1, t2 = TEAM_MAP.get(str(row['Team']), str(row['Team'])), TEAM_MAP.get(str(row['Opponent']),
-                                                                                    str(row['Opponent']))
-            g_id = " vs ".join(sorted([t1, t2]))
-            w = weather.get(g_id, {})
+        # Match Stats
+        choices = choices_p if is_p else choices_h
+        stats_df = p_fg if is_p else h_fg
+        try:
+            match = process.extractOne(name, choices, scorer=fuzz.token_set_ratio)
+            adv = stats_df[stats_df['full_name'] == match[0]].iloc[0] if match and match[1] >= 85 else {}
+        except:
+            adv = {}
 
-            p_data = row.to_dict()
-            p_data.update({
-                'Match_Display': g_id,
-                'Weather_Short': f"{w.get('temp', '--')}°",
-                'W_Icon': "🏟️" if "dome" in str(w.get('condition', '')).lower() else "☀️",
-                'Wind_Speed': w.get('wind_speed', '0'),
-                'Wind_Direction': w.get('wind_direction', ''),
-                'Logo': get_logo_url(row['Team']),
-                'Proj': round(row['Proj_Base'], 1),
-                'Primary_Stat': f"WHIP: {adv.get('WHIP', 0):.2f}" if is_p else f"ISO: {adv.get('ISO', 0):.3f}",
-                'Secondary_Stat': f"K/9: {adv.get('K/9', 0):.1f}" if is_p else f"wRC+: {int(adv.get('wRC+', 0))}"
-            })
-            pool_ui.append(p_data)
+        # Weather
+        t1, t2 = TEAM_MAP.get(str(row['Team']), str(row['Team'])), TEAM_MAP.get(str(row['Opponent']),
+                                                                                str(row['Opponent']))
+        g_id = " vs ".join(sorted([t1, t2]))
+        w = weather.get(g_id, {})
 
-            if g_id not in game_map:
-                info = espn.get(g_id, {'time_str': 'TBD', 'raw_time': datetime.max.replace(tzinfo=pytz.utc)})
-                game_map[g_id] = {'id': g_id, 'display': g_id, 'time': info['time_str'], 'sort': info['raw_time']}
+        pool_ui.append({
+            'Player': name, 'POS': row['POS'], 'Team': row['Team'], 'Opponent': row['Opponent'],
+            'Salary': int(row['Salary']), 'Proj': round(row['Proj_Base'], 1),
+            'Logo': get_logo_url(row['Team']), 'Weather_Short': f"{w.get('temp', '--')}°",
+            'Primary_Stat': f"WHIP: {adv.get('WHIP', 0):.2f}" if is_p else f"ISO: {adv.get('ISO', 0):.3f}",
+            'Secondary_Stat': f"K/9: {adv.get('K/9', 0):.1f}" if is_p else f"wRC+: {int(adv.get('wRC+', 0))}"
+        })
 
-        results, status = None, "MLB SYSTEMS ONLINE"
-        if request.method == 'POST':
-            results = run_optimizer(
-                df_raw,
-                num_lineups=int(request.form.get('num_lineups', 5)),
-                locks=request.form.getlist('player_locks'),
-                stack_team=request.form.get('stack_team'),
-                min_stack=int(request.form.get('min_stack', 5)),
-                diversity=int(request.form.get('diversity', 4))
-            )
-            status = f"SUCCESS: {len(results)} LINEUPS" if results else "FAILED"
+        if g_id not in game_map:
+            info = espn.get(g_id, {'time_str': 'TBD', 'raw_time': datetime.max.replace(tzinfo=pytz.utc)})
+            game_map[g_id] = {'id': g_id, 'display': g_id, 'time': info['time_str'], 'sort': info['raw_time']}
 
-        return render_template('sport_mlb.html', sport="MLB", results=results, status=status,
-                               teams=sorted(df_raw['Team'].unique()),
-                               games=sorted(game_map.values(), key=lambda x: x['sort']), pool=pool_ui)
+    # 3. Run Optimization if requested
+    results, status = None, "MLB SYSTEMS ONLINE"
+    if request.method == 'POST':
+        results = run_optimizer(
+            df_raw,
+            num_lineups=int(request.form.get('num_lineups', 5)),
+            locks=request.form.getlist('player_locks'),
+            stack_team=request.form.get('stack_team'),
+            min_stack=int(request.form.get('min_stack', 5)),
+            diversity=int(request.form.get('diversity', 4)),
+            excluded_games=request.form.getlist('excluded_games')
+        )
+        status = f"SUCCESS: {len(results)} LINEUPS" if results else "FAILED - CHECK CONSTRAINTS"
 
-    return cached_view()
+    return render_template('sport_mlb.html', sport="MLB", results=results, pool=pool_ui,
+                           games=sorted(game_map.values(), key=lambda x: x['sort']),
+                           matchup=dynamic_matchup, status=status, teams=sorted(df_raw['Team'].unique()))
