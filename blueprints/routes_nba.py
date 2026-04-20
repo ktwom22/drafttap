@@ -3,7 +3,8 @@ import random
 import pandas as pd
 import pulp
 import traceback
-from flask import Blueprint, render_template, request, current_app
+import re
+from flask import Blueprint, render_template, request
 from helpers.nba_helpers import (
     get_nba_logo_url,
     get_nba_matchup_info,
@@ -20,70 +21,94 @@ SLOT_ORDER = {s: i for i, s in enumerate(NBA_SLOTS)}
 
 
 def get_clean_data():
-    """Fetches data and handles empty states or column mismatches gracefully."""
     try:
         sync_url = f"{NBA_SALARY_CSV}&t={int(time.time())}"
-        raw_df = pd.read_csv(sync_url)
+        df_raw = pd.read_csv(sync_url)
 
-        if raw_df.empty:
-            print("!!! NOTICE: Google Sheet is currently empty.")
+        if df_raw.empty:
             return pd.DataFrame()
 
-        # Clean hidden whitespace from headers
-        raw_df.columns = [str(c).strip() for c in raw_df.columns]
+        # Clean headers
+        df_raw.columns = [str(c).strip() for c in df_raw.columns]
+        clean_rows = []
 
-        # Explicit mapping based on your sheet's discovered headers
-        name_col = next((c for c in raw_df.columns if c.lower() in ['name', 'player']), None)
-        proj_col = next((c for c in raw_df.columns if c.lower() in ['projected points', 'proj', 'fpts']), None)
-        sal_col = next((c for c in raw_df.columns if c.lower() in ['salary', 'sal']), None)
-        pos_col = 'POS'
-        team_col = 'Team'
-        opp_col = 'Opponent'
+        for _, row in df_raw.iterrows():
+            try:
+                # 1. Identify the Name
+                # If 'Name' column exists, use it. Otherwise, look at the first column.
+                name = str(row.get('Name', row.iloc[0])).split('·')[0].split('$')[0].strip()
+                name = re.sub(r'\s[A-Z]{1,2}\d*$', '', name).strip()
 
-        # Check for vital columns
-        if not name_col or not sal_col:
-            print(f"!!! WARNING: Vital columns missing. Found: {list(raw_df.columns)}")
-            return pd.DataFrame()
+                # 2. Identify Salary
+                # Try 'Salary' column first, then 'Abbrev Salary', then parse string
+                salary = 0
+                if 'Salary' in row and pd.notnull(row['Salary']):
+                    sal_val = str(row['Salary']).replace('$', '').replace(',', '')
+                    salary = float(sal_val)
+                elif 'Abbrev Salary' in row:
+                    sal_val = str(row['Abbrev Salary']).replace('$', '').replace(',', '')
+                    salary = float(sal_val)
 
-        df = raw_df.dropna(subset=[name_col]).copy()
+                if salary > 0 and salary < 1000: salary *= 1000
 
-        # Data Sanitization
-        df['Player'] = df[name_col].astype(str).str.replace(' Q', '').str.strip()
-        df['Team'] = df[team_col].astype(str).str.upper().str.strip() if team_col in df.columns else "N/A"
-        df['Opponent'] = df[opp_col].astype(str).str.upper().str.strip() if opp_col in df.columns else "N/A"
+                # 3. Identify Projections
+                proj = 0
+                if 'Projected Points' in row:
+                    proj = float(row['Projected Points'])
+                elif 'Proj' in row:
+                    proj = float(row['Proj'])
 
-        # Salary Logic
-        df['Salary'] = pd.to_numeric(df[sal_col].astype(str).replace(r'[\$,kK]', '', regex=True),
-                                     errors='coerce').fillna(0)
-        if df['Salary'].max() > 0 and df['Salary'].max() < 1000:
-            df['Salary'] *= 1000
+                # 4. Identification for Position/Team (using your sheet's column order)
+                # POS is usually Col 1, Team is Col 5, Opp is Col 6 in your export
+                pos = str(row.get('POS', row.iloc[1])).upper().strip()
+                team = str(row.get('Team', row.iloc[5])).upper().strip()
+                opp = str(row.get('Opponent', row.iloc[6])).upper().strip()
 
-        # Projection Logic
-        df['Proj'] = pd.to_numeric(df[proj_col], errors='coerce').fillna(0) if proj_col else 0.0
-        df['POS'] = df[pos_col].astype(str).str.upper().str.strip() if pos_col in df.columns else "UTIL"
+                if name and name != 'nan' and salary > 0:
+                    clean_rows.append({
+                        'Player': name,
+                        'POS': pos,
+                        'Salary': salary,
+                        'Proj': proj,
+                        'Team': team,
+                        'Opponent': opp
+                    })
+            except:
+                continue
 
-        # Final Filter: Only players with a name and a salary > 0
-        df = df[(df['Player'] != 'nan') & (df['Salary'] > 0)]
-
-        print(f"!!! SUCCESS: {len(df)} players loaded for the active slate.")
+        df = pd.DataFrame(clean_rows)
+        print(f"!!! SUCCESS: {len(df)} players loaded into the pool.")
         return df
 
     except Exception as e:
-        print(f"!!! DATA CLEANING ERROR: {e}")
-        traceback.print_exc()
+        print(f"!!! CRITICAL ERROR: {e}")
         return pd.DataFrame()
 
 
-def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limit=0.4, locks=[], excluded_games=[]):
+def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=0, exposure_limit=0.4, locks=[], excluded_games=[]):
     all_results, used_indices = [], []
-    # Filter for viable players
-    df = df[df['Proj'] > 0].copy()
 
+    # 1. Debug Print: See what's coming in
+    print(f"DEBUG: Starting Optimizer with {len(df)} total players.")
+    print(f"DEBUG: Excluded Games: {excluded_games}")
+
+    # 2. Robust Game Filtering
     if excluded_games:
-        df = df[
-            ~df.apply(lambda r: " vs ".join(sorted([str(r['Team']), str(r['Opponent'])])) in excluded_games, axis=1)]
+        # We ensure both the row data and exclusion list are stripped and uppered for a perfect match
+        df = df[~df.apply(lambda r: " vs ".join(sorted([str(r['Team']).strip().upper(),
+                                                        str(r['Opponent']).strip().upper()])) in excluded_games,
+                          axis=1)]
 
-    if df.empty: return []
+    # 3. Projection check
+    if df['Proj'].sum() == 0:
+        print("DEBUG: All projections were 0, applying 1.0 to all players to allow solve.")
+        df['Proj'] = 1.0
+
+    print(f"DEBUG: Players available after filtering: {len(df)}")
+
+    if len(df) < 8:
+        print(f"!!! ERROR: Only {len(df)} players available after filtering. Need at least 8.")
+        return []
 
     player_usage = {p: 0 for p in df.index}
     max_use = max(1, int(num_lineups * exposure_limit))
@@ -94,35 +119,40 @@ def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
         x = pulp.LpVariable.dicts("x", (players, NBA_SLOTS), cat="Binary")
 
         prob += pulp.lpSum(
-            [(df.loc[p, 'Proj'] * random.uniform(0.99, 1.01)) * x[p][s] for p in players for s in NBA_SLOTS])
+            [(df.loc[p, 'Proj'] * random.uniform(0.98, 1.02)) * x[p][s] for p in players for s in NBA_SLOTS])
         prob += pulp.lpSum([df.loc[p, 'Salary'] * x[p][s] for p in players for s in NBA_SLOTS]) <= 50000
 
-        punt_players = [p for p in players if df.loc[p, 'Salary'] < 4000]
-        if punt_players and min_punts > 0:
-            prob += pulp.lpSum([x[p][s] for p in punt_players for s in NBA_SLOTS]) >= min_punts
-
+        # Fill slots
         for s in NBA_SLOTS:
             prob += pulp.lpSum([x[p][s] for p in players]) == 1
 
         for p in players:
             prob += pulp.lpSum([x[p][s] for s in NBA_SLOTS]) <= 1
+
             if df.loc[p, 'Player'] in locks:
                 prob += pulp.lpSum([x[p][s] for s in NBA_SLOTS]) == 1
             elif player_usage.get(p, 0) >= max_use:
                 prob += pulp.lpSum([x[p][s] for s in NBA_SLOTS]) == 0
 
-            pos = str(df.loc[p, 'POS'])
+            # POS Logic
+            pos = str(df.loc[p, 'POS']).upper()
             for s in NBA_SLOTS:
-                valid = (s == 'UTIL') or \
-                        (s == 'G' and any(g in pos for g in ['PG', 'SG'])) or \
-                        (s == 'F' and any(f in pos for f in ['SF', 'PF'])) or \
-                        (s in pos)
+                if s == 'UTIL':
+                    valid = True
+                elif s == 'G':
+                    valid = any(x in pos for x in ['PG', 'SG', 'G'])
+                elif s == 'F':
+                    valid = any(x in pos for x in ['SF', 'PF', 'F'])
+                else:
+                    valid = (s in pos)
+
                 if not valid: prob += x[p][s] == 0
 
+        # Diversity
         for past in used_indices:
             prob += pulp.lpSum([x[p][s] for p in past for s in NBA_SLOTS]) <= (len(NBA_SLOTS) - diversity)
 
-        prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=5))
+        prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=3))
 
         if pulp.LpStatus[prob.status] == 'Optimal':
             lineup, p_indices, t_sal, t_proj = [], [], 0, 0
@@ -135,6 +165,7 @@ def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
                         p_indices.append(p)
                         t_sal += row['Salary']
                         t_proj += row['Proj']
+
             lineup.sort(key=lambda x: SLOT_ORDER.get(x['Slot'], 99))
             all_results.append({'players': lineup, 'total_projection': round(t_proj, 2), 'total_salary': int(t_sal)})
             used_indices.append(p_indices)
@@ -143,21 +174,12 @@ def run_nba_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
             break
     return all_results
 
-
 @nba_bp.route('/', methods=['GET', 'POST'])
 def index():
     df = get_clean_data()
-
-    # Handle empty state: Pass empty lists to the template instead of a 500 error
     if df.empty:
-        return render_template(
-            'sport_nba.html',
-            results=None,
-            pool=[],
-            sport="NBA",
-            games=[],
-            status="WAITING FOR SLATE"
-        )
+        return render_template('sport_nba.html', results=None, pool=[], sport="NBA", games=[],
+                               status="WAITING FOR SLATE")
 
     dynamic_id_map = get_dynamic_espn_ids()
     pool_list, unique_games, seen_games = [], [], set()
@@ -173,26 +195,35 @@ def index():
                 'Match_Display': match_str,
                 'Value': round(r['Proj'] / (r['Salary'] / 1000), 1) if r['Salary'] > 0 else 0
             })
-
             g_id = " vs ".join(sorted([str(r['Team']), str(r['Opponent'])]))
             if g_id not in seen_games:
                 unique_games.append({'id': g_id, 'display': match_str})
                 seen_games.add(g_id)
-        except Exception as e:
+        except:
             continue
 
     results = None
     status = "NBA SYSTEMS ONLINE"
 
     if request.method == 'POST':
+        # 1. Get the list of IDs that ARE checked (Included Games)
+        included_games = request.form.getlist('games')
+
+        # 2. Get the list of ALL possible game IDs from your unique_games list
+        all_game_ids = [g['id'] for g in unique_games]
+
+        # 3. Create the EXCLUSION list (Any game NOT in the included list)
+        excluded = [gid for gid in all_game_ids if gid not in included_games]
+
+        # 4. Pass the EXCLUSIONS to the optimizer
         results = run_nba_optimizer(
             df,
             num_lineups=int(request.form.get('num_lineups', 10)),
             diversity=int(request.form.get('diversity', 3)),
-            min_punts=int(request.form.get('min_punts', 1)),
+            min_punts=int(request.form.get('min_punts', 0)),
             exposure_limit=float(request.form.get('exposure_limit', 0.4)),
             locks=request.form.getlist('player_locks'),
-            excluded_games=request.form.getlist('games')
+            excluded_games=excluded  # This now removes ONLY the unchecked games
         )
         status = f"OPTIMIZED {len(results)} LINEUPS" if results else "OPTIMIZATION FAILED"
 

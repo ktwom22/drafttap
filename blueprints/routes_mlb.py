@@ -12,8 +12,9 @@ from helpers.mlb_helpers import (
     get_mlb_weather_data,
     get_espn_game_info,
     get_prime_matchup,
-    TEAM_MAP,
-    get_logo_url
+    get_logo_url,
+    get_player_headshot_url,
+    TEAM_MAP
 )
 
 mlb_bp = Blueprint('mlb', __name__, url_prefix='/mlb')
@@ -67,10 +68,6 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                                                                      str(r['Opponent']))])) in excluded_games, axis=1)]
 
     all_results, used_player_indices = [], []
-
-    # Map Pitcher Hands for batter bonuses
-    p_hand_map = df[df['POS'].str.contains('P')].set_index('Team').get('CleanHand',
-                                                                       {}).to_dict() if 'CleanHand' in df.columns else {}
     confirmed_teams = set(df[df['Order'] > 0]['Team'].unique())
 
     # 2. Daily Fantasy Logic (Order & Platoon bonuses)
@@ -150,7 +147,9 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                                     'Slot': s, 'Name': r['Player'], 'Salary': int(r['Salary']),
                                     'Team': r['Team'], 'Opponent': r['Opponent'],
                                     'Logo': get_logo_url(r['Team']),
-                                    'SortKey': POS_ORDER[s]
+                                    'SortKey': POS_ORDER[s],
+                                    'Order': r.get('Order', 0),
+                                    'Hand': r.get('CleanHand', '')  # or whatever your hand column is named
                                 })
                                 p_indices.append(p)
                                 t_sal += r['Salary']
@@ -169,15 +168,16 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
 
 @mlb_bp.route('/', methods=['GET', 'POST'])
 def index():
-    # 1. Basic Data Retrieval (Fresh for Post, but could be cached via helpers)
     df_raw = get_df_raw()
-    if df_raw.empty: return "MLB Offline - Check Spreadsheet Connectivity.", 503
+    if df_raw.empty: return "MLB Offline", 503
 
-    # 2. Enrich Pool for UI (Weather/Stats/SEO)
+    # Define SEO Matchup early to avoid NameError
+    dynamic_matchup = get_prime_matchup()
+
+    # Fetch fresh weather and game data
     weather = get_mlb_weather_data()
     espn = get_espn_game_info()
     h_fg, p_fg = get_weighted_stats()
-    dynamic_matchup = get_prime_matchup()
 
     pool_ui, game_map = [], {}
     choices_h = [str(n) for n in h_fg['full_name'].dropna().tolist()]
@@ -187,32 +187,57 @@ def index():
         name = str(row.get('Player', ''))
         is_p = 'P' in str(row['POS'])
 
-        # Match Stats
-        choices = choices_p if is_p else choices_h
-        stats_df = p_fg if is_p else h_fg
+        # 1. Attempt ID and Stat Match
+        mlb_id = "0"
+        adv = {}
         try:
+            choices = choices_p if is_p else choices_h
+            stats_df = p_fg if is_p else h_fg
+            # Threshold set to 80 to catch slight naming variations
             match = process.extractOne(name, choices, scorer=fuzz.token_set_ratio)
-            adv = stats_df[stats_df['full_name'] == match[0]].iloc[0] if match and match[1] >= 85 else {}
+            if match and match[1] >= 80:
+                adv = stats_df[stats_df['full_name'] == match[0]].iloc[0].to_dict()
+                mlb_id = str(adv.get('mlb_id', '0'))
         except:
-            adv = {}
+            pass
 
-        # Weather
-        t1, t2 = TEAM_MAP.get(str(row['Team']), str(row['Team'])), TEAM_MAP.get(str(row['Opponent']),
-                                                                                str(row['Opponent']))
+        # 2. Weather & Matchup (Standardization Fix)
+        # Use TEAM_MAP to turn full names or alternate abbreviations into standardized keys
+        t1 = TEAM_MAP.get(str(row['Team']), str(row['Team']))
+        t2 = TEAM_MAP.get(str(row['Opponent']), str(row['Opponent']))
         g_id = " vs ".join(sorted([t1, t2]))
-        w = weather.get(g_id, {})
+
+        w_data = weather.get(g_id, {})
+        e_data = espn.get(g_id, {})
+
+        # Build Matchup String safely using weather/espn fetched data
+        time_val = e_data.get('time_str', 'TBD')
+        venue_val = w_data.get('venue', 'Ballpark')
+        temp_val = w_data.get('temp', '--')
+        cond_val = w_data.get('condition', '')
+        matchup_str = f"{time_val} @ {venue_val} | {temp_val}° {cond_val}"
 
         pool_ui.append({
-            'Player': name, 'POS': row['POS'], 'Team': row['Team'], 'Opponent': row['Opponent'],
-            'Salary': int(row['Salary']), 'Proj': round(row['Proj_Base'], 1),
-            'Logo': get_logo_url(row['Team']), 'Weather_Short': f"{w.get('temp', '--')}°",
-            'Primary_Stat': f"WHIP: {adv.get('WHIP', 0):.2f}" if is_p else f"ISO: {adv.get('ISO', 0):.3f}",
-            'Secondary_Stat': f"K/9: {adv.get('K/9', 0):.1f}" if is_p else f"wRC+: {int(adv.get('wRC+', 0))}"
+            'Player': name,
+            'POS': row['POS'],
+            'Team': row['Team'],
+            'Opponent': row['Opponent'],
+            'Salary': int(row['Salary']),
+            'Proj': round(row['Proj_Base'], 1),
+            'Logo': get_logo_url(row['Team']),
+            'Player_Image': get_player_headshot_url(mlb_id), # Reliable headshot/silhouette logic
+            'Match_Display': matchup_str,
+            'Primary_Stat': f"WHIP: {adv.get('WHIP', 1.35):.2f}" if is_p else f"ISO: {adv.get('ISO', 0.150):.3f}",
+            'Secondary_Stat': f"K/9: {adv.get('K/9', 7.5):.1f}" if is_p else f"wRC+: {int(adv.get('wRC+', 100))}"
         })
 
         if g_id not in game_map:
-            info = espn.get(g_id, {'time_str': 'TBD', 'raw_time': datetime.max.replace(tzinfo=pytz.utc)})
-            game_map[g_id] = {'id': g_id, 'display': g_id, 'time': info['time_str'], 'sort': info['raw_time']}
+            game_map[g_id] = {
+                'id': g_id,
+                'display': g_id,
+                'time': time_val,
+                'sort': e_data.get('raw_time', datetime.max.replace(tzinfo=pytz.utc))
+            }
 
     # 3. Run Optimization if requested
     results, status = None, "MLB SYSTEMS ONLINE"

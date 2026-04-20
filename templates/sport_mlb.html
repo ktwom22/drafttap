@@ -50,7 +50,7 @@
             align-items: center;
         }
 
-        /* --- SIDEBAR: BAR SPECS --- */
+        /* --- SIDEBAR --- */
         .sidebar-card {
             background: var(--bg-card);
             padding: 24px;
@@ -70,25 +70,6 @@
             border-radius: 2px !important;
         }
 
-        .form-control:focus, .form-select:focus {
-            border-color: var(--tap-gold) !important;
-            box-shadow: 0 0 10px rgba(255, 193, 7, 0.2) !important;
-            outline: none;
-        }
-
-        .input-group-text {
-            background-color: var(--wood-trim) !important;
-            border-color: #3f444d !important;
-            color: var(--text-dim) !important;
-            font-size: 0.65rem;
-            font-weight: 800;
-            text-transform: uppercase;
-        }
-
-        /* --- LOGO & HEADER --- */
-        .brand-name { font-family: 'Oswald', sans-serif; letter-spacing: 1px; text-transform: uppercase; }
-        .brand-name span { color: var(--tap-gold); }
-
         .btn-optimize {
             background: linear-gradient(135deg, var(--tap-gold) 0%, #e67e22 100%);
             color: #000;
@@ -100,63 +81,84 @@
             text-transform: uppercase;
             letter-spacing: 2px;
             border-radius: 4px;
-            transition: all 0.2s ease;
             box-shadow: 0 4px 15px rgba(255, 193, 7, 0.2);
+            cursor: pointer;
         }
 
-        .btn-optimize:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4); }
+        /* --- SCROLLABLE PLAYER POOL --- */
+        .pool-wrapper {
+            background: var(--bg-card);
+            border: 1px solid var(--border-heavy);
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
 
-        /* --- PLAYER POOL TABLE --- */
-        .pool-wrapper { background: var(--bg-card); border: 1px solid var(--border-heavy); border-radius: 4px; }
+        .table-responsive-scroll {
+            flex: 1;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--tap-gold) var(--bg-deep);
+        }
 
         .pool-table thead th {
             position: sticky; top: 0; background-color: #161b22;
             color: var(--tap-gold); font-family: 'Oswald', sans-serif;
-            text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px;
+            text-transform: uppercase; font-size: 0.8rem;
             z-index: 10; padding: 15px; border-bottom: 2px solid var(--border-heavy);
         }
 
-        .metric-primary { color: var(--ice-blue); font-weight: 800; font-size: 0.85rem; font-family: 'JetBrains Mono'; }
-        .metric-secondary { color: var(--text-dim); font-size: 0.7rem; font-family: 'JetBrains Mono'; }
-        .wind-text { color: var(--ice-blue); font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono'; }
+        /* --- IMAGE & AVATAR FIXES (ANTI-FLICKER) --- */
+        .player-avatar-frame {
+            position: relative; width: 52px; height: 52px;
+            background: #1c2128; border-radius: 6px;
+            border: 1px solid var(--border-heavy);
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+            transform: translateZ(0); /* Anti-flicker hardware acceleration */
+        }
+
+        .player-headshot {
+            width: 100%; height: 100%;
+            object-fit: contain;
+            object-position: bottom;
+            z-index: 1;
+            transition: opacity 0.2s ease-in;
+        }
+
+        .team-badge-overlay {
+            position: absolute; bottom: 2px; right: 2px;
+            width: 18px; height: 18px;
+            background: #ffffff; border-radius: 3px;
+            padding: 2px; z-index: 5;
+            box-shadow: 0 0 4px rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .team-badge-overlay img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+        }
+
+        /* --- STAT BADGES --- */
+        .stat-pill {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--border-heavy);
+        }
 
         /* --- LINEUP CARDS --- */
-        .lineup-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-heavy);
-            border-radius: 4px;
-            overflow: hidden;
-            transition: border-color 0.3s;
-        }
+        .lineup-card { background: var(--bg-card); border: 1px solid var(--border-heavy); border-radius: 4px; overflow: hidden; margin-bottom: 20px; transition: border-color 0.2s; }
         .lineup-card:hover { border-color: var(--tap-gold); }
+        .lineup-header { background: var(--wood-trim); border-bottom: 2px solid var(--tap-gold); padding: 12px 15px; font-family: 'Oswald', sans-serif; }
+        .slot-badge { background: #000; color: var(--tap-gold); font-family: 'JetBrains Mono'; font-weight: 800; font-size: 10px; padding: 4px 8px; border: 1px solid var(--border-heavy); border-radius: 2px; min-width: 45px; text-align: center; display: inline-block; }
 
-        .lineup-header {
-            background: var(--wood-trim);
-            border-bottom: 2px solid var(--tap-gold);
-            padding: 12px 15px;
-            font-family: 'Oswald', sans-serif;
-        }
+        #results-anchor { scroll-margin-top: 30px; }
 
-        .slot-badge {
-            background: #000; color: var(--tap-gold); font-family: 'JetBrains Mono';
-            font-weight: 800; font-size: 10px; padding: 4px 0;
-            width: 40px; text-align: center; border: 1px solid var(--border-heavy); border-radius: 2px;
-        }
-
-        .hand-badge {
-            background: rgba(34, 211, 238, 0.1); color: var(--ice-blue);
-            font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 3px;
-        }
-
-        .logo-protect {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 4px;
-            border-radius: 4px;
-            display: inline-flex;
-            align-items: center;
-        }
-
-        @media (max-width: 768px) { .pool-table { font-size: 0.8rem; } }
     </style>
 </head>
 <body>
@@ -170,60 +172,53 @@
     <div class="d-flex align-items-center mb-5">
         <a href="/" style="text-decoration: none; color: inherit;" class="d-flex align-items-center">
             <i class="fa-solid fa-faucet-drip me-3" style="color: var(--tap-gold); font-size: 1.8rem;"></i>
-            <h2 class="brand-name fw-bold m-0">{{ sport }}<span>TAP</span></h2>
+            <h2 style="font-family: 'Oswald', sans-serif; font-weight: 700; letter-spacing: 1px; margin: 0; text-transform: uppercase;">{{ sport }}<span>TAP</span></h2>
         </a>
         <div class="ms-auto">
-            <span class="badge border text-uppercase px-3" style="color: var(--text-dim); border-color: var(--border-heavy); font-family: 'JetBrains Mono'; font-size: 0.7rem;">
-                OFFICE: LEBANON, ME // SLATE: LIVE
-            </span>
+            <span class="badge border text-uppercase px-3" style="color: var(--text-dim); border-color: var(--border-heavy); font-family: 'JetBrains Mono'; font-size: 0.7rem;">OFFICE: LEBANON, ME // SLATE: LIVE</span>
         </div>
     </div>
 
+    <form method="POST" id="opt-form">
     <div class="row g-4">
         <div class="col-lg-3">
             <div class="sidebar-card shadow">
                 <h6 class="text-white fw-bold mb-4" style="font-family: 'Oswald'; letter-spacing: 2px; font-size: 0.9rem;">BAR SPECS</h6>
-                <form method="POST" id="opt-form">
-                    <div class="mb-4">
-                        <label class="small fw-bold text-dim text-uppercase mb-2 d-block">Lineups</label>
-                        <input type="number" name="num_lineups" class="form-control" value="10">
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="small fw-bold text-dim text-uppercase mb-2 d-block">Diversity</label>
-                        <input type="number" name="diversity" class="form-control" value="4">
-                    </div>
-
-                    {% if sport == "MLB" %}
-                    <div class="mb-4">
-                        <label class="small fw-bold text-dim text-uppercase d-block mb-2">Team Stack</label>
-                        <select name="stack_team" class="form-select mb-2">
-                            <option value="None">Auto-Select</option>
-                            {% for team in teams %}
-                            <option value="{{ team }}">{{ team }}</option>
-                            {% endfor %}
-                        </select>
-                        <div class="input-group">
-                            <span class="input-group-text">Min Size</span>
-                            <input type="number" name="min_stack" class="form-control" value="5">
+                <div class="mb-4">
+                    <label class="small text-uppercase text-dim d-block mb-1">Lineups</label>
+                    <input type="number" name="num_lineups" class="form-control" value="10">
+                </div>
+                <div class="mb-4">
+                    <label class="small text-uppercase text-dim d-block mb-1">Diversity</label>
+                    <input type="number" name="diversity" class="form-control" value="4">
+                </div>
+                <div class="mb-4">
+                    <label class="small text-uppercase text-dim d-block mb-1">Exposure Limit</label>
+                    <input type="number" step="0.1" name="exposure_limit" class="form-control" value="0.4">
+                </div>
+                <div class="mb-4">
+                    <label class="small text-uppercase text-dim d-block mb-1">Game Slate</label>
+                    <div class="p-2 rounded" style="background: #000; border: 1px solid var(--border-heavy); max-height: 150px; overflow-y: auto;">
+                        {% for g in games %}
+                        <div class="form-check small">
+                            <input class="form-check-input" type="checkbox" name="games" value="{{ g.id }}" checked id="g-{{ loop.index }}">
+                            <label class="form-check-label text-white" for="g-{{ loop.index }}" style="font-size: 10px;">{{ g.display }}</label>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endif %}
-
-                    <button type="submit" class="btn btn-optimize">Pull the Tap</button>
-                </form>
+                </div>
+                <button type="submit" class="btn btn-optimize">Pull the Tap</button>
             </div>
         </div>
 
         <div class="col-lg-9">
-            <div class="pool-wrapper mb-5 shadow-lg">
-                <div class="table-responsive">
+            <div class="pool-wrapper shadow-lg mb-5">
+                <div class="table-responsive-scroll">
                     <table class="table table-dark mb-0 pool-table">
                         <thead>
                             <tr>
                                 <th>Player</th>
-                                <th>Matchup / Weather</th>
-                                <th>Edge</th>
+                                <th>Matchup / Stats</th>
                                 <th class="text-end">Proj</th>
                                 <th class="text-end">Salary</th>
                                 <th class="text-center">Lock</th>
@@ -231,30 +226,33 @@
                         </thead>
                         <tbody>
                             {% for p in pool %}
-                            <tr style="border-bottom: 1px solid #1c2128; vertical-align: middle;">
+                            <tr style="vertical-align: middle; border-bottom: 1px solid var(--border-heavy);">
                                 <td>
                                     <div class="d-flex align-items-center">
-                                        <div class="logo-protect me-3"><img src="{{ p.Logo }}" style="width:22px;"></div>
+                                        <div class="player-avatar-frame me-3">
+                                            <img src="{{ p.Player_Image }}"
+                                                 class="player-headshot"
+                                                 loading="eager"
+                                                 onerror="this.onerror=null; this.src='{{ p.Logo }}'; this.style.objectFit='contain'; this.style.padding='5px';">
+                                            <div class="team-badge-overlay">
+                                                <img src="{{ p.Logo }}">
+                                            </div>
+                                        </div>
                                         <div>
-                                            <div class="fw-bold text-white">{{ p.Player }}</div>
-                                            <div class="small text-dim" style="font-size: 10px; font-family: 'JetBrains Mono';">{{ p.POS }} · {{ p.Team }}</div>
+                                            <div class="fw-bold">{{ p.Player }}</div>
+                                            <div class="small text-dim" style="font-size: 10px;">{{ p.POS }} · {{ p.Team }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="fw-bold small" style="font-family: 'JetBrains Mono'; font-size: 11px;">{{ p.Match_Display }}</div>
-                                    <div class="text-warning small fw-bold">{{ p.W_Icon }} {{ p.Weather_Short }}</div>
-                                    <div class="wind-text">
-                                        <i class="fa-solid fa-wind me-1" style="font-size: 9px;"></i>
-                                        {{ p.Wind_Speed }}mph {{ p.Wind_Direction }}
+                                    <div class="small fw-bold" style="font-family: 'JetBrains Mono'; font-size: 11px;">{{ p.Match_Display }}</div>
+                                    <div class="mt-1 d-flex gap-1">
+                                        <span class="stat-pill" style="color: var(--ice-blue);">{{ p.Primary_Stat }}</span>
+                                        <span class="stat-pill text-dim">{{ p.Secondary_Stat }}</span>
                                     </div>
                                 </td>
-                                <td>
-                                    <div class="metric-primary">{{ p.Primary_Stat }}</div>
-                                    <div class="metric-secondary">{{ p.Secondary_Stat }}</div>
-                                </td>
-                                <td class="text-end"><span class="proj-value" style="color: #fff; font-weight: 900; font-size: 1.1rem; font-family: 'JetBrains Mono';">{{ p.Proj }}</span></td>
-                                <td class="text-end"><span style="color: var(--tap-gold); font-weight: 800; font-family: 'JetBrains Mono';">${{ "{:,.0f}".format(p.Salary) }}</span></td>
+                                <td class="text-end fw-bold text-white">{{ p.Proj }}</td>
+                                <td class="text-end fw-bold" style="color: var(--tap-gold);">${{ "{:,.0f}".format(p.Salary) }}</td>
                                 <td class="text-center"><input type="checkbox" name="player_locks" value="{{ p.Player }}" class="form-check-input"></td>
                             </tr>
                             {% endfor %}
@@ -264,42 +262,46 @@
             </div>
 
             {% if results %}
-            <div id="results-target">
-                <h3 class="fw-bold mb-4" style="font-family: 'Oswald'; color: var(--tap-gold); letter-spacing: 2px; text-transform: uppercase;">The High-Value Pour</h3>
+            <div id="results-anchor">
+                <h3 class="fw-bold mb-4" style="font-family: 'Oswald'; color: var(--tap-gold); text-transform: uppercase;">The High-Value Pour</h3>
                 <div class="row g-4">
                     {% for lineup in results %}
                     <div class="col-md-6 col-xl-4">
-                        <div class="lineup-card">
+                        <div class="lineup-card shadow">
                             <div class="lineup-header d-flex justify-content-between">
-                                <span class="text-dim small" style="letter-spacing: 1px;">ENTRY #{{ loop.index }}</span>
-                                <span class="fw-bold" style="color: var(--tap-gold);">{{ lineup.total_projection }} <small style="font-size: 9px; color: #fff;">FPTS</small></span>
+                                <span class="text-dim small">ENTRY #{{ loop.index }}</span>
+                                <span class="fw-bold" style="color: var(--tap-gold);">{{ lineup.total_projection }} <small style="color:#fff;">FPTS</small></span>
                             </div>
                             <table class="table table-dark table-sm mb-0">
                                 <tbody>
-                                    {% for pl in lineup.players %}
-                                    <tr style="background: rgba(255,255,255,0.01); border-bottom: 1px solid #1c2128;">
-                                        <td class="ps-3 align-middle" style="width: 50px;"><div class="slot-badge">{{ pl.Slot }}</div></td>
-                                        <td class="align-middle py-2">
+                                   {% for pl in lineup.players %}
+                                    <tr>
+                                        <td class="ps-3 py-2"><div class="slot-badge">{{ pl.Slot }}</div></td>
+                                        <td class="py-2">
                                             <div class="d-flex align-items-center">
-                                                <div class="logo-protect me-2" style="padding: 2px;">
-                                                    <img src="{{ pl.Logo }}" style="width:16px;">
-                                                    <span class="mx-1" style="font-size: 7px; color: #444;">v</span>
-                                                    <img src="{{ pl.Opp_Logo }}" style="width:16px; opacity: 0.6;">
-                                                </div>
+                                                <img src="{{ pl.Logo }}" style="width: 16px; height: 16px; margin-right: 8px; object-fit: contain;">
+
                                                 <div>
-                                                    <div class="fw-bold text-white" style="font-size: 11px;">{{ pl.Name }}</div>
-                                                    <div class="hand-badge">{{ pl.Matchup_Hand }}</div>
+                                                    <div class="fw-bold" style="font-size: 11px;">
+                                                        {% if pl.Order and pl.Order > 0 %}{{ pl.Order }}. {% endif %}{{ pl.Name }}
+
+                                                        <small class="ms-1" style="color: var(--ice-blue); font-family: 'JetBrains Mono'; font-size: 9px;">
+                                                            {% if pl.Hand %}
+                                                                {% if 'L' in pl.Hand %}LVR{% elif 'R' in pl.Hand %}RVL{% endif %}
+                                                            {% endif %}
+                                                        </small>
+                                                    </div>
+                                                    <div class="text-dim" style="font-size: 9px;">{{ pl.Team }}</div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="text-end pe-3 align-middle">
-                                            <div style="color: var(--tap-gold); font-size: 10px; font-weight: 800; font-family: 'JetBrains Mono';">${{ "{:,.0f}".format(pl.Salary) }}</div>
-                                        </td>
+                                        <td class="text-end pe-3 py-2" style="font-size: 10px; color: var(--tap-gold); font-family: 'JetBrains Mono';">${{ "{:,.0f}".format(pl.Salary) }}</td>
                                     </tr>
+
                                     {% endfor %}
-                                    <tr style="background: #000;">
-                                        <td colspan="2" class="ps-3 py-2 text-dim text-uppercase" style="font-size: 9px; letter-spacing: 1px;">Draft Tab Cost</td>
-                                        <td class="text-end pe-3 py-2 fw-bold text-white" style="font-size: 11px; font-family: 'JetBrains Mono';">${{ "{:,.0f}".format(lineup.total_salary) }}</td>
+                                    <tr style="border-top: 1px solid var(--border-heavy); background: #000;">
+                                        <td colspan="2" class="ps-3 py-2 small text-uppercase text-dim" style="font-size: 9px;">Total Salary</td>
+                                        <td class="text-end pe-3 py-2 fw-bold text-white">${{ "{:,.0f}".format(lineup.total_salary) }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -311,11 +313,26 @@
             {% endif %}
         </div>
     </div>
+    </form>
 </div>
 
 <script>
+    // Handle Loading State
     document.getElementById('opt-form').addEventListener('submit', function() {
         document.getElementById('loading-overlay').style.display = 'flex';
+    });
+
+    // Forced Jump Logic
+    document.addEventListener("DOMContentLoaded", function() {
+        const resultsAnchor = document.getElementById('results-anchor');
+        if (resultsAnchor) {
+            setTimeout(() => {
+                resultsAnchor.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }, 300);
+        }
     });
 </script>
 </body>

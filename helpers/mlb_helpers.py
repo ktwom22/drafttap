@@ -53,9 +53,18 @@ def normalize_name(name):
 def get_logo_url(team_abbr):
     clean_abbr = TEAM_MAP.get(team_abbr, team_abbr)
     tid = TEAM_ID_MAP.get(clean_abbr)
+    # Using 'team-cap-on-light' ensures it looks clean in the small white badge
     return f"https://www.mlbstatic.com/team-logos/team-cap-on-light/{tid}.svg" if tid else "https://www.mlbstatic.com/team-logos/league/1.svg"
 
 
+def get_player_headshot_url(mlb_id):
+    """Returns a high-res MLB headshot with a reliable silhouette fallback."""
+    # If ID is missing or 0, return the official MLB gray silhouette
+    if not mlb_id or str(mlb_id) == "0":
+        return "https://midas.mlbstatic.com/v1/people/0/headshot/67/current"
+
+    # Use the 'best' quality auto-formatting URL to prevent flickering on load
+    return f"https://img.mlbstatic.com/mlb-photos/player/headshot/67/current/{mlb_id}.png"
 # --- DATA FETCHING ---
 
 def fetch_pitcher_metrics(year):
@@ -64,12 +73,19 @@ def fetch_pitcher_metrics(year):
                                       'limit': 1500})
         year_data = {}
         for s in data['stats'][0].get('splits', []):
-            st, name = s.get('stat', {}), s.get('player', {}).get('fullName', '')
+            st = s.get('stat', {})
+            p_obj = s.get('player', {})
+            name = p_obj.get('fullName', '')
+            mlb_id = p_obj.get('id', '0')
             if not name: continue
             year_data[normalize_name(name)] = {
-                'full_name': name, 'WHIP': clean_float(st.get('whip'), 1.35),
-                'K9': clean_float(st.get('strikeoutsPer9Inn'), 7.5), 'HR9': clean_float(st.get('homeRunsPer9'), 1.2),
-                'K_BB': clean_float(st.get('strikeoutWalkRatio'), 2.5), 'GS': int(st.get('gamesStarted', 0))
+                'mlb_id': mlb_id,
+                'full_name': name,
+                'WHIP': clean_float(st.get('whip'), 1.35),
+                'K9': clean_float(st.get('strikeoutsPer9Inn'), 7.5),
+                'HR9': clean_float(st.get('homeRunsPer9'), 1.2),
+                'K_BB': clean_float(st.get('strikeoutWalkRatio'), 2.5),
+                'GS': int(st.get('gamesStarted', 0))
             }
         return year_data
     except:
@@ -82,11 +98,16 @@ def fetch_hitter_metrics(year):
                             {'stats': 'season', 'season': year, 'group': 'hitting', 'playerPool': 'all', 'limit': 1500})
         year_data = {}
         for s in data['stats'][0].get('splits', []):
-            st, name = s.get('stat', {}), s.get('player', {}).get('fullName', '')
+            st = s.get('stat', {})
+            p_obj = s.get('player', {})
+            name = p_obj.get('fullName', '')
+            mlb_id = p_obj.get('id', '0')
             if not name: continue
             ops = clean_float(st.get('ops'), 0.700)
             year_data[normalize_name(name)] = {
-                'full_name': name, 'ISO': clean_float(st.get('slg'), 0.400) - clean_float(st.get('avg'), 0.250),
+                'mlb_id': mlb_id,
+                'full_name': name,
+                'ISO': clean_float(st.get('slg'), 0.400) - clean_float(st.get('avg'), 0.250),
                 'wRC_proxy': int((ops / 0.750) * 100)
             }
         return year_data
@@ -110,6 +131,7 @@ def get_weighted_stats():
         k9, kbb, whip = blend('K9', 7.5), blend('K_BB', 2.5), blend('WHIP', 1.35)
         blended_p.append({
             'norm_name': name,
+            'mlb_id': s26['mlb_id'] if s26 else s25['mlb_id'],
             'full_name': s26['full_name'] if s26 else s25['full_name'],
             'Chalk_Quality': round(max(0.1, (k9 * 0.5 + kbb * 0.5 - whip * 2.0)), 2),
             'WHIP': round(whip, 2), 'K/9': round(k9, 2), 'HR/9': blend('HR9', 1.2),
@@ -125,6 +147,7 @@ def get_weighted_stats():
         iso = blend('ISO', 0.150)
         blended_h.append({
             'norm_name': name,
+            'mlb_id': s26['mlb_id'] if s26 else s25['mlb_id'],
             'full_name': s26['full_name'] if s26 else s25['full_name'],
             'ISO': round(iso, 3),
             'wRC+': int(blend('wRC_proxy', 100)),
@@ -138,7 +161,7 @@ def get_weighted_stats():
 
 def get_mlb_weather_data():
     weather_map = {}
-    # Internal map for weather processing
+    # Internal map to normalize MLB API names to abbreviations
     api_to_abbr = {v: k for k, v in {
         "ARI": "Arizona Diamondbacks", "ATL": "Atlanta Braves", "BAL": "Baltimore Orioles",
         "BOS": "Boston Red Sox", "CHC": "Chicago Cubs", "CWS": "Chicago White Sox", "CIN": "Cincinnati Reds",
@@ -164,7 +187,7 @@ def get_mlb_weather_data():
             raw_wind = w_obj.get('wind', '')
 
             if not raw_wind or "0 mph" in raw_wind:
-                speed, direction = "--", "Calm/TBD"
+                speed, direction = "0", "Calm"
             else:
                 try:
                     s_match = re.search(r'(\d+)', raw_wind)
@@ -179,7 +202,7 @@ def get_mlb_weather_data():
                 'wind_speed': speed,
                 'wind_direction': direction,
                 'condition': w_obj.get('condition', 'Clear'),
-                'venue': game_data.get('venue', {}).get('name', 'Unknown')
+                'venue': game_data.get('venue', {}).get('shortName', 'Unknown')
             }
     except Exception as e:
         print(f"Weather Fetch Error: {e}")
@@ -211,10 +234,26 @@ def get_espn_game_info():
     return game_info
 
 
+def get_mlb_matchup_info(row, game_info, weather_map):
+    """Aggregates game metadata for the UI Matchup column."""
+    clean_team = TEAM_MAP.get(row['Team'], row['Team'])
+    clean_opp = TEAM_MAP.get(row['Opponent'], row['Opponent'])
+    gid = " vs ".join(sorted([clean_team, clean_opp]))
+
+    g_info = game_info.get(gid, {})
+    w_info = weather_map.get(gid, {})
+
+    time_str = g_info.get('time_str', 'TBD')
+    venue = w_info.get('venue', 'Ballpark')
+    temp = w_info.get('temp', '--')
+    cond = w_info.get('condition', '')
+
+    return f"{time_str} @ {venue} | {temp}° {cond}"
+
+
 # --- SEO & AUTOMATION HELPERS ---
 
 def get_prime_matchup():
-    """Returns the top MLB matchup string for SEO Titles."""
     try:
         games = get_espn_game_info()
         if not games: return "Today's MLB Slate"
@@ -225,7 +264,6 @@ def get_prime_matchup():
 
 
 def get_all_matchup_slugs():
-    """Returns a list of URL-friendly strings for all MLB games for Sitemap."""
     slugs = []
     try:
         games = get_espn_game_info()

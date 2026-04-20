@@ -119,18 +119,45 @@
             border-bottom: 2px solid var(--border-heavy);
         }
 
+        /* IMAGE FIXES START HERE */
         .player-avatar-frame {
-            position: relative; width: 44px; height: 44px;
-            background: #000; border-radius: 4px;
+            position: relative;
+            width: 54px;
+            height: 54px;
+            background: radial-gradient(circle, #1c2128 0%, #0d1117 100%);
+            border-radius: 6px;
             border: 1px solid var(--border-heavy);
-            display: flex; align-items: flex-end; justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             overflow: hidden;
         }
 
-        .team-badge-overlay {
-            position: absolute; bottom: 0; right: 0; width: 16px; height: 16px;
-            background: #fff; border-radius: 2px; padding: 1px; z-index: 5;
+        .player-headshot {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Prevents jersey zooming */
+            object-position: center 15%; /* Focuses on head/face */
+            transition: transform 0.2s;
         }
+
+        .player-avatar-frame:hover .player-headshot {
+            transform: scale(1.1);
+        }
+
+        .team-badge-overlay {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            padding: 2px;
+            z-index: 5;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        /* IMAGE FIXES END HERE */
 
         .proj-value { color: #fff; font-weight: 900; font-family: 'JetBrains Mono'; }
         .salary-value { color: var(--tap-gold); font-weight: 800; font-family: 'JetBrains Mono'; }
@@ -202,7 +229,7 @@
 
                 <div class="mb-4">
                     <label>Min Punts (<$4k)</label>
-                    <input type="number" name="min_punts" class="form-control" value="1">
+                    <input type="number" name="min_punts" class="form-control" value="0">
                 </div>
 
                 <div class="mb-4">
@@ -254,15 +281,15 @@
                                             </div>
                                         </div>
                                         <div>
-                                            <div class="fw-bold text-white" style="font-size: 0.9rem;">{{ p.Player }}</div>
-                                            <div class="small text-dim" style="font-size: 10px; font-family: 'JetBrains Mono';">
+                                            <div class="fw-bold text-white" style="font-size: 0.95rem; line-height: 1.2;">{{ p.Player }}</div>
+                                            <div class="small text-dim" style="font-size: 11px; font-family: 'JetBrains Mono'; margin-top: 2px;">
                                                 <span style="color: var(--ice-blue);">{{ p.POS }}</span> · {{ p.Team }}
                                             </div>
                                         </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="small" style="font-family: 'JetBrains Mono';">
+                                    <div class="small" style="font-family: 'JetBrains Mono'; font-size: 11px;">
                                         {{ p.Match_Display }}
                                     </div>
                                 </td>
@@ -281,9 +308,9 @@
             <div class="empty-slate-box shadow-lg">
                 <i class="fa-solid fa-hourglass-start fa-3x mb-4" style="color: var(--border-heavy);"></i>
                 <h3 style="font-family: 'Oswald'; letter-spacing: 2px;">THE TAP IS DRY</h3>
-                <p class="text-muted">There are no active {{ sport }} slates at this moment. Projections usually pour in 2-3 hours before the first game tips off.</p>
+                <p class="text-muted">There are no active {{ sport }} slates at this moment.</p>
                 <div class="mt-4">
-                    <a href="/" class="btn btn-sm btn-outline-warning px-4 text-uppercase">Check MLB Slates</a>
+                    <a href="/" class="btn btn-sm btn-outline-warning px-4 text-uppercase">Check Slates</a>
                 </div>
             </div>
             {% endif %}
@@ -296,7 +323,7 @@
                     <div class="col-md-6 col-xl-4">
                         <div class="lineup-card shadow">
                             <div class="lineup-header d-flex justify-content-between align-items-center">
-                                <span class="text-dim small">ENTRY #{{ loop.index }}</span>
+                                <span class="text-dim small" style="font-size: 10px;">ENTRY #{{ loop.index }}</span>
                                 <span class="fw-bold" style="color: var(--tap-gold);">{{ lineup.total_projection }} <small style="font-size: 10px; color: #fff;">FPTS</small></span>
                             </div>
                             <table class="table table-dark table-sm mb-0">
@@ -314,7 +341,7 @@
                                     </tr>
                                     {% endfor %}
                                     <tr style="background: #000;">
-                                        <td colspan="2" class="ps-3 py-2 text-dim text-uppercase" style="font-size: 9px;">Cost</td>
+                                        <td colspan="2" class="ps-3 py-2 text-dim text-uppercase" style="font-size: 9px;">Total Salary</td>
                                         <td class="text-end pe-3 py-2 fw-bold text-white" style="font-size: 11px;">${{ "{:,.0f}".format(lineup.total_salary) }}</td>
                                     </tr>
                                 </tbody>
