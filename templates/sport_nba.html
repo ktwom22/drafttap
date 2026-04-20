@@ -12,22 +12,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>{{ sport }} Optimizer | Draft Tap</title>
+    <title>NBA Optimizer | Draft Tap</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Oswald:wght@500;700&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --bg-deep: #000000;
+            --bg-deep: #020408;
             --bg-card: #0d1117;
-            --neon-green: #00ff85;
             --tap-gold: #ffc107;
-            --electric-blue: #22d3ee;
+            --ice-blue: #22d3ee;
             --border-heavy: #30363d;
             --text-main: #ffffff;
             --text-dim: #b1bac4;
+            --wood-trim: #1c2128;
         }
 
         body {
@@ -50,181 +50,154 @@
             align-items: center;
         }
 
+        /* --- SIDEBAR: BAR SPECS --- */
         .sidebar-card {
-            background: #080a0c;
+            background: var(--bg-card);
             padding: 24px;
-            border-radius: 6px;
+            border-radius: 4px;
             border: 1px solid var(--border-heavy);
+            border-top: 3px solid var(--tap-gold);
             position: sticky;
             top: 20px;
         }
 
-        /* --- COMMAND CENTER CONTRAST FIX --- */
         .sidebar-card label {
-            color: var(--electric-blue) !important;
+            color: var(--ice-blue) !important;
             letter-spacing: 1.5px;
             font-weight: 800;
             font-size: 0.65rem;
             margin-bottom: 8px;
             text-transform: uppercase;
+            font-family: 'Inter', sans-serif;
         }
 
-        .form-check-label.text-white {
-            color: #ffffff !important;
-            font-weight: 500;
-            opacity: 0.9;
-        }
-
-        .form-control {
+        .form-control, .form-select {
             background-color: #121519 !important;
             border: 1px solid #3f444d !important;
             color: #ffffff !important;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.85rem;
-            border-radius: 4px !important;
+            border-radius: 2px !important;
         }
 
         .form-control:focus {
-            border-color: var(--neon-green) !important;
-            box-shadow: 0 0 10px rgba(0, 255, 133, 0.2) !important;
+            border-color: var(--tap-gold) !important;
+            box-shadow: 0 0 10px rgba(255, 193, 7, 0.2) !important;
         }
 
         .btn-optimize {
-            background-color: var(--neon-green);
+            background: linear-gradient(135deg, var(--tap-gold) 0%, #e67e22 100%);
             color: #000;
             border: none;
             padding: 16px;
-            font-weight: 900;
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
             width: 100%;
             text-transform: uppercase;
             letter-spacing: 2px;
             border-radius: 4px;
             transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.2);
         }
 
-        .btn-optimize:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 255, 133, 0.3); }
+        .btn-optimize:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4); }
 
-        /* --- SCROLLABLE POOL --- */
+        /* --- PLAYER POOL --- */
         .pool-wrapper {
-            background: var(--bg-deep);
+            background: var(--bg-card);
             border: 1px solid var(--border-heavy);
-            border-radius: 6px;
+            border-radius: 4px;
             overflow: hidden;
-            height: 700px;
+            height: 750px;
             display: flex;
             flex-direction: column;
         }
 
-        .table-container {
-            flex: 1;
-            overflow-y: auto;
-            position: relative;
-        }
+        .table-container { flex: 1; overflow-y: auto; }
 
         .pool-table thead th {
-            position: sticky;
-            top: 0;
-            background-color: #0d1117;
-            color: var(--text-dim);
+            position: sticky; top: 0;
+            background-color: #161b22;
+            color: var(--tap-gold);
+            font-family: 'Oswald', sans-serif;
             text-transform: uppercase;
-            font-size: 0.65rem;
-            font-weight: 800;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
             z-index: 10;
             padding: 15px;
             border-bottom: 2px solid var(--border-heavy);
         }
 
-        /* --- AVATAR & LOGO LOGIC --- */
         .player-avatar-frame {
             position: relative;
-            width: 48px;
-            height: 48px;
-            background: #161b22;
-            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            background: #000;
+            border-radius: 4px;
             border: 1px solid var(--border-heavy);
             display: flex;
             align-items: flex-end;
             justify-content: center;
+            overflow: hidden;
         }
 
-        .player-headshot {
-            width: 110%;
-            height: auto;
-            border-radius: 50%;
-            z-index: 1;
-        }
+        .player-headshot { width: 100%; height: auto; z-index: 1; }
 
         .team-badge-overlay {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            width: 18px;
-            height: 18px;
-            background: #000;
-            border-radius: 4px;
-            padding: 2px;
-            border: 1px solid var(--border-heavy);
-            z-index: 5;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            position: absolute; bottom: 0; right: 0; width: 16px; height: 16px;
+            background: #fff; border-radius: 2px; padding: 1px; z-index: 5;
         }
 
-        /* --- LINE/PP BADGES --- */
-        .nhl-badge {
-            font-family: 'JetBrains Mono';
-            font-size: 10px;
-            font-weight: 800;
-            min-width: 28px;
-            padding: 4px;
-            border-radius: 3px;
-            display: inline-block;
-        }
-        .bg-line { background: #21262d; color: var(--text-main); border: 1px solid var(--border-heavy); }
-        .bg-pp { background: rgba(255, 193, 7, 0.1); color: var(--tap-gold); border: 1px solid var(--tap-gold); }
-
-        .proj-value { color: var(--neon-green); font-weight: 900; font-size: 1.1rem; font-family: 'JetBrains Mono'; }
+        .proj-value { color: #fff; font-weight: 900; font-size: 1.1rem; font-family: 'JetBrains Mono'; }
         .salary-value { color: var(--tap-gold); font-weight: 800; font-family: 'JetBrains Mono'; }
 
         /* --- LINEUP CARDS --- */
         .lineup-card {
-            background: #0d1117;
+            background: var(--bg-card);
             border: 1px solid var(--border-heavy);
-            border-radius: 8px;
+            border-radius: 4px;
             overflow: hidden;
             margin-bottom: 20px;
         }
-        .lineup-header { background: #1c2128; border-bottom: 2px solid var(--neon-green); padding: 12px 15px; }
+        .lineup-header {
+            background: var(--wood-trim);
+            border-bottom: 2px solid var(--tap-gold);
+            padding: 12px 15px;
+            font-family: 'Oswald', sans-serif;
+        }
 
         .slot-badge {
-            background: #21262d; color: #fff; font-family: 'JetBrains Mono';
+            background: #000; color: var(--tap-gold); font-family: 'JetBrains Mono';
             font-weight: 800; font-size: 10px; padding: 4px 8px;
-            border-radius: 4px; text-align: center; display: inline-block; min-width: 45px;
+            border: 1px solid var(--border-heavy);
+            border-radius: 2px; text-align: center; display: inline-block; min-width: 45px;
         }
 
         /* --- SCROLLBARS --- */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg-deep); }
         ::-webkit-scrollbar-thumb { background: var(--border-heavy); border-radius: 10px; }
-        .table-container::-webkit-scrollbar-thumb { background: var(--neon-green); }
+        .table-container::-webkit-scrollbar-thumb { background: var(--tap-gold); }
     </style>
 </head>
 <body>
 
 <div id="loading-overlay">
-    <div class="spinner-border" style="width: 3rem; height: 3rem; color: var(--neon-green);" role="status"></div>
-    <h2 class="fw-black text-uppercase mt-4" style="color: var(--neon-green); letter-spacing: 5px; font-weight: 900;">POURING</h2>
+    <i class="fa-solid fa-beer-mug-empty fa-spin fa-3x" style="color: var(--tap-gold);"></i>
+    <h2 class="text-uppercase mt-4" style="font-family: 'Oswald'; color: var(--text-main); letter-spacing: 5px;">POURING LINEUPS</h2>
 </div>
 
 <div class="container-fluid py-4 px-lg-5">
     <div class="d-flex align-items-center mb-5">
         <a href="/" style="text-decoration: none; color: inherit;" class="d-flex align-items-center">
-            <i class="fa-solid fa-bolt-lightning me-3" style="color: var(--neon-green); font-size: 1.8rem;"></i>
-            <h2 style="font-family: 'JetBrains Mono', monospace; font-weight: 800; letter-spacing: -1px; margin: 0;">
-                {{ sport }}<span style="color: var(--tap-gold); font-weight: 900;">TAP</span>
+            <i class="fa-solid fa-faucet-drip me-3" style="color: var(--tap-gold); font-size: 1.8rem;"></i>
+            <h2 style="font-family: 'Oswald', sans-serif; font-weight: 700; letter-spacing: 1px; margin: 0; text-transform: uppercase;">
+                NBA<span style="color: var(--tap-gold);">TAP</span>
             </h2>
         </a>
         <div class="ms-auto">
-            <span class="badge border text-uppercase px-3" style="color: var(--neon-green); border-color: var(--neon-green); font-size: 0.7rem;">
-                ● SYSTEM ACTIVE
+            <span class="badge border text-uppercase px-3" style="color: var(--text-dim); border-color: var(--border-heavy); font-family: 'JetBrains Mono'; font-size: 0.7rem;">
+                OFFICE: LEBANON, ME // SLATE: LIVE
             </span>
         </div>
     </div>
@@ -232,31 +205,31 @@
     <div class="row g-4">
         <div class="col-lg-3">
             <div class="sidebar-card shadow">
-                <h6 class="text-white fw-black mb-4" style="letter-spacing: 2px; font-size: 0.8rem; border-bottom: 1px solid var(--border-heavy); padding-bottom: 10px;">COMMAND CENTER</h6>
+                <h6 class="text-white fw-bold mb-4" style="font-family: 'Oswald'; letter-spacing: 2px; font-size: 0.9rem; border-bottom: 1px solid var(--border-heavy); padding-bottom: 10px;">BAR SPECS</h6>
                 <form method="POST" id="opt-form">
                     <div class="mb-4">
-                        <label class="d-block">Lineups</label>
+                        <label>Lineups</label>
                         <input type="number" name="num_lineups" class="form-control" value="10">
                     </div>
 
                     <div class="mb-4">
-                        <label class="d-block">Diversity</label>
+                        <label>Diversity</label>
                         <input type="number" name="diversity" class="form-control" value="4">
                     </div>
 
                     <div class="mb-4">
-                        <label class="d-block">Game Slate</label>
-                        <div class="p-2 rounded" style="background: #0d1117; border: 1px solid var(--border-heavy); max-height: 180px; overflow-y: auto;">
+                        <label>Game Slate</label>
+                        <div class="p-2 rounded" style="background: #000; border: 1px solid var(--border-heavy); max-height: 180px; overflow-y: auto;">
                             {% for g in games %}
                             <div class="form-check small mb-1 d-flex align-items-center">
                                 <input class="form-check-input me-2" type="checkbox" name="games" value="{{ g.id }}" id="check-{{ loop.index }}" checked>
-                                <label class="form-check-label text-white" for="check-{{ loop.index }}" style="font-size: 11px;">{{ g.display }}</label>
+                                <label class="form-check-label text-white" for="check-{{ loop.index }}" style="font-size: 11px; font-family: 'JetBrains Mono';">{{ g.display }}</label>
                             </div>
                             {% endfor %}
                         </div>
                     </div>
 
-                    <button type="submit" class="btn btn-optimize">Generate Slate</button>
+                    <button type="submit" class="btn btn-optimize">Pull the Tap</button>
                 </form>
             </div>
         </div>
@@ -268,8 +241,6 @@
                         <thead>
                             <tr>
                                 <th>Player</th>
-                                <th class="text-center">Line</th>
-                                <th class="text-center">PP</th>
                                 <th>Matchup</th>
                                 <th class="text-end">Proj</th>
                                 <th class="text-end">Salary</th>
@@ -278,14 +249,12 @@
                         </thead>
                         <tbody>
                             {% for p in pool %}
-                            <tr style="border-bottom: 1px solid #1c2128;">
+                            <tr style="border-bottom: 1px solid #1c2128; vertical-align: middle;">
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="player-avatar-frame me-3">
-                                            <img src="{{ p.Player_Image }}"
-                                                 class="player-headshot"
-                                                 loading="lazy"
-                                                 onerror="this.onerror=null;this.src='https://a.espncdn.com/i/headshots/nhl/players/full/0.png';">
+                                            <img src="{{ p.Player_Image }}" class="player-headshot" loading="lazy"
+                                                 onerror="this.onerror=null;this.src='https://a.espncdn.com/i/headshots/nba/players/full/0.png';">
                                             <div class="team-badge-overlay">
                                                 <img src="{{ p.Logo }}" style="width: 100%; height: auto; display: block;">
                                             </div>
@@ -293,31 +262,14 @@
                                         <div>
                                             <div class="fw-bold text-white" style="font-size: 0.9rem;">{{ p.Player }}</div>
                                             <div class="small text-dim" style="font-size: 10px; font-family: 'JetBrains Mono';">
-                                                <span style="color: var(--neon-green);">{{ p.POS }}</span> · {{ p.Team }}
+                                                <span style="color: var(--ice-blue);">{{ p.POS }}</span> · {{ p.Team }}
                                             </div>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="text-center">
-                                    <span class="nhl-badge bg-line">L{{ p.Line }}</span>
-                                </td>
-                                <td class="text-center">
-                                    {% if p.PP != "-" %}
-                                    <span class="nhl-badge bg-pp">P{{ p.PP }}</span>
-                                    {% else %}
-                                    <span class="text-dim opacity-25">-</span>
-                                    {% endif %}
-                                </td>
                                 <td>
                                     <div class="fw-bold small" style="letter-spacing: 0.5px; font-family: 'JetBrains Mono';">
-                                        {% set matchup_parts = p.Match_Display.split(' @ ') %}
-                                        {% if matchup_parts|length == 2 %}
-                                            <span style="opacity: 0.5;">{{ matchup_parts[0] }}</span>
-                                            <span style="color: var(--neon-green); font-size: 9px; margin: 0 2px;">@</span>
-                                            <span style="color: #fff;">{{ matchup_parts[1] }}</span>
-                                        {% else %}
-                                            {{ p.Match_Display }}
-                                        {% endif %}
+                                        {{ p.Match_Display }}
                                     </div>
                                 </td>
                                 <td class="text-end"><span class="proj-value">{{ p.Proj }}</span></td>
@@ -334,19 +286,19 @@
 
             {% if results %}
             <div id="results-target">
-                <h3 class="fw-black mb-4" style="color: var(--neon-green); letter-spacing: 2px; font-weight: 900;">POURED LINEUPS</h3>
+                <h3 class="fw-bold mb-4" style="font-family: 'Oswald'; color: var(--tap-gold); letter-spacing: 2px; text-transform: uppercase;">The High-Value Pour</h3>
                 <div class="row g-4">
                     {% for lineup in results %}
                     <div class="col-md-6 col-xl-4">
                         <div class="lineup-card shadow">
                             <div class="lineup-header d-flex justify-content-between align-items-center">
-                                <span class="fw-bold text-dim small">ENTRY #{{ loop.index }}</span>
-                                <span class="fw-bold" style="color: var(--neon-green);">{{ lineup.total_projection }} <small style="font-size: 9px;">FPTS</small></span>
+                                <span class="text-dim small" style="letter-spacing: 1px;">ENTRY #{{ loop.index }}</span>
+                                <span class="fw-bold" style="color: var(--tap-gold);">{{ lineup.total_projection }} <small style="font-size: 10px; color: #fff;">FPTS</small></span>
                             </div>
                             <table class="table table-dark table-sm mb-0">
                                 <tbody>
                                     {% for pl in lineup.players %}
-                                    <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid #1c2128;">
+                                    <tr style="background: rgba(255,255,255,0.01); border-bottom: 1px solid #1c2128;">
                                         <td class="ps-3 py-2" style="width: 60px;"><div class="slot-badge">{{ pl.Slot }}</div></td>
                                         <td class="py-2">
                                             <div class="fw-bold text-white" style="font-size: 11px;">{{ pl.Name }}</div>
@@ -358,8 +310,8 @@
                                     </tr>
                                     {% endfor %}
                                     <tr style="background: #000;">
-                                        <td colspan="2" class="ps-3 py-2 text-dim text-uppercase" style="font-size: 9px;">Total Salary</td>
-                                        <td class="text-end pe-3 py-2 fw-bold text-white" style="font-size: 11px;">${{ "{:,.0f}".format(lineup.total_salary) }}</td>
+                                        <td colspan="2" class="ps-3 py-2 text-dim text-uppercase" style="font-size: 9px; letter-spacing: 1px;">Draft Tab Cost</td>
+                                        <td class="text-end pe-3 py-2 fw-bold text-white" style="font-size: 11px; font-family: 'JetBrains Mono';">${{ "{:,.0f}".format(lineup.total_salary) }}</td>
                                     </tr>
                                 </tbody>
                             </table>

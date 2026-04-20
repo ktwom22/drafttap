@@ -6,263 +6,264 @@
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
       gtag('config', 'G-V4NJH4K19B');
-    </script>
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "Draft Tap",
-      "url": "https://web-production-f03c8.up.railway.app/",
-      "description": "High-performance NBA, MLB, and NHL lineup optimizer using Python-based analytics for DraftKings and daily fantasy sports.",
-      "applicationCategory": "SportsApplication",
-      "operatingSystem": "All",
-      "author": {
-        "@type": "Person",
-        "name": "Kyle Twombley",
-        "jobTitle": "Director of New Business Development",
-        "description": "Senior Executive and Python Developer specializing in revenue-generating sports analytics."
-      },
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      "featureList": [
-        "Live NBA Slate Optimization",
-        "Real-time MLB Projection Tap",
-        "NHL Correlated Stacking Engine",
-        "Linear Programming Solver (PuLP)",
-        "Revenue-focused betting edge calculation"
-      ]
-    }
     </script>
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <title>Draft Tap | Professional NBA, MLB & NHL Lineup Optimizer</title>
-    <meta name="description" content="Analytics on tap. Draft Tap provides live NBA, MLB, and NHL lineup optimization for DraftKings. Built for accuracy, speed, and revenue generation.">
-    <meta name="keywords" content="NBA Optimizer, MLB Optimizer, NHL Optimizer, DraftKings Lineup Generator, Sports Analytics Python, Draft Tap, Kyle Twombley">
-
-    <meta property="og:title" content="Draft Tap | Analytics on Tap">
-    <meta property="og:description" content="Stop guessing. Start pouring. Professional grade sports optimization for the modern bettor.">
-    <meta property="og:image" content="{{ url_for('static', filename='tap-preview.png') }}">
-    <meta property="og:type" content="website">
-
+    <title>Draft Tap | Premium Sports Analytics</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;800&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --terminal-bg: #0d1117;
-            --dk-green: #00ff41;
-            --tap-gold: #ffc107;
-            --ice-blue: #22d3ee;
-            --card-bg: #161b22;
+            --bar-bg: #1a1c1e; /* Deep Charcoal */
+            --chalk-white: #f8f9fa;
+            --accent-gold: #d4af37; /* Metallic Gold */
+            --felt-green: #2d5a27; /* Poker/Sportsbook Green */
+            --wood-trim: #2c1e1a;
         }
 
         body {
-            background-color: var(--terminal-bg);
-            color: #ffffff;
-            font-family: 'JetBrains Mono', monospace;
+            background-color: var(--bar-bg);
+            background-image: radial-gradient(circle at center, #2c2f33 0%, #1a1c1e 100%);
+            color: var(--chalk-white);
+            font-family: 'Inter', sans-serif;
             min-height: 100vh;
+            margin: 0;
             display: flex;
             align-items: center;
-            justify-content: center;
-            margin: 0;
-            padding: 0;
         }
 
-        .command-center {
-            max-width: 1000px;
-            width: 100%;
+        .lounge-container {
+            max-width: 1200px;
+            margin: 0 auto;
             padding: 40px 20px;
         }
 
-        /* HEADER SECTION */
-        .brand-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 2px solid #30363d;
-            padding-bottom: 25px;
-            margin-bottom: 40px;
+        /* HEADER: The Bar Sign */
+        .bar-header {
+            text-align: center;
+            margin-bottom: 60px;
+            border-bottom: 4px double var(--accent-gold);
+            padding-bottom: 30px;
         }
 
-        .logo-section {
-            display: flex;
-            align-items: center;
-            gap: 18px;
+        .handle-icon {
+            font-size: 3rem;
+            color: var(--accent-gold);
+            margin-bottom: 10px;
+            display: block;
         }
 
-        .call-logo {
-            background: linear-gradient(135deg, var(--tap-gold) 0%, #e67e22 100%);
-            color: #000;
-            width: 55px;
-            height: 55px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            box-shadow: 0 0 25px rgba(255, 193, 7, 0.4);
-            transform: rotate(-10deg);
-        }
-
-        .brand-name {
-            font-size: 2.5rem;
-            font-weight: 900;
-            letter-spacing: -2px;
+        .brand-logo {
+            font-family: 'Oswald', sans-serif;
+            font-size: 4rem;
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 4px;
             margin: 0;
+            line-height: 1;
         }
 
-        .brand-name span {
-            color: var(--tap-gold);
-            font-style: italic;
+        .brand-logo span {
+            color: var(--accent-gold);
+            background: linear-gradient(to bottom, #f1c40f, #d4af37);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        /* SPORTS GRID */
-        .sport-grid {
+        .tagline {
+            font-size: 0.9rem;
+            letter-spacing: 6px;
+            color: #888;
+            text-transform: uppercase;
+            margin-top: 10px;
+        }
+
+        /* THE MENU GRID */
+        .sport-menu {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
             gap: 30px;
         }
 
-        .sport-btn {
-            background: var(--card-bg);
-            border: 1px solid #30363d;
-            border-radius: 16px;
-            padding: 50px 20px;
+        .menu-item {
+            background: #24272b;
+            border: 1px solid #3a3f44;
+            border-radius: 4px; /* Sharper, professional look */
+            padding: 0;
             text-decoration: none !important;
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        .sport-btn:hover {
-            border-color: var(--tap-gold);
-            background: #1c2128;
-            transform: translateY(-8px);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.7);
+        .menu-item:hover {
+            transform: scale(1.03);
+            border-color: var(--accent-gold);
+            box-shadow: 0 15px 45px rgba(0,0,0,0.8);
         }
 
-        /* Hover effect for NHL specifically */
-        .sport-btn.nhl-btn:hover {
-            border-color: var(--ice-blue);
+        /* Top Header of the card */
+        .item-header {
+            background: var(--wood-trim);
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent-gold);
         }
 
-        .sport-btn i {
-            font-size: 4rem;
-            color: #8b949e;
-            margin-bottom: 25px;
+        .item-header i { font-size: 1.5rem; color: var(--accent-gold); }
+        .item-header span { font-family: 'Oswald'; font-weight: 700; letter-spacing: 1px; }
+
+        /* Content section */
+        .item-body {
+            padding: 30px 20px;
+            text-align: center;
         }
 
-        .sport-btn:hover i {
-            color: var(--tap-gold);
+        .sport-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 2.2rem;
+            margin-bottom: 15px;
+            color: #fff;
         }
 
-        .sport-btn.nhl-btn:hover i {
-            color: var(--ice-blue);
+        .live-ticker {
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 20px;
         }
 
-        .sport-btn h3 {
-            font-weight: 800;
+        .ticker-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+        }
+
+        .ticker-label { color: #aaa; }
+        .ticker-value { color: var(--accent-gold); font-weight: 800; }
+
+        .btn-enter {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 8px 25px;
+            border: 1px solid var(--accent-gold);
+            color: var(--accent-gold);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
             letter-spacing: 2px;
-            margin: 0;
+            transition: 0.3s;
         }
 
-        .status-badge {
-            position: absolute;
-            top: 15px;
-            left: 15px;
-            font-size: 0.6rem;
-            font-weight: 800;
-            color: var(--dk-green);
-            background: rgba(0, 255, 65, 0.1);
-            padding: 4px 10px;
-            border-radius: 20px;
+        .menu-item:hover .btn-enter {
+            background: var(--accent-gold);
+            color: #000;
+        }
+
+        /* FOOTER */
+        .lounge-footer {
+            margin-top: 80px;
+            text-align: center;
+            color: #555;
+            font-size: 0.7rem;
+            letter-spacing: 4px;
             text-transform: uppercase;
         }
 
-        .status-badge.ice {
-            color: var(--ice-blue);
-            background: rgba(34, 211, 238, 0.1);
-        }
-
-        /* MOBILE OVERRIDES */
         @media (max-width: 768px) {
-            .command-center { padding: 20px 15px; }
-            .brand-name { font-size: 1.8rem; }
-            .brand-header { flex-direction: column; align-items: flex-start; gap: 15px; }
-            .sport-grid { grid-template-columns: 1fr; }
-            .sport-btn { padding: 35px 20px; }
-            .sport-btn i { font-size: 3rem; margin-bottom: 15px; }
+            .brand-logo { font-size: 2.5rem; }
+            .sport-menu { grid-template-columns: 1fr; }
         }
-
-        .footer {
-            margin-top: 60px;
-            text-align: center;
-            opacity: 0.4;
-        }
-
-        .footer p {
-            font-size: 0.7rem;
-            letter-spacing: 4px;
-        }
-
-        #aisec-summary { display: none; }
     </style>
 </head>
 <body>
 
-<section id="aisec-summary">
-    <h2>About Draft Tap</h2>
-    <p>Draft Tap is a proprietary sports analytics terminal developed in Lebanon, Maine.
-    It leverages Python-based linear programming via the PuLP library to solve the knapsack problem for DFS.
-    Developed by Kyle Twombley, the platform provides live-feed optimization for DraftKings NBA, MLB, and NHL slates.</p>
-</section>
-
-<div class="command-center">
-    <header class="brand-header">
-        <div class="logo-section">
-            <div class="call-logo">
-                <i class="fa-solid fa-faucet-drip"></i>
-            </div>
-            <h1 class="brand-name">DRAFT<span>TAP</span></h1>
-        </div>
-        <div class="text-start text-md-end">
-            <div class="small text-muted mb-0">OPTIMIZER STATUS: POURING</div>
-            <div class="small text-warning">LEBANON_ME // HQ</div>
-        </div>
+<div class="lounge-container w-100">
+    <header class="bar-header">
+        <i class="fa-solid fa-beer-mug-empty handle-icon"></i>
+        <h1 class="brand-logo">DRAFT<span>TAP</span></h1>
+        <div class="tagline">Analytics on Tap • Lebanon, ME</div>
     </header>
 
-    <div class="sport-grid">
-        <a href="/nba" class="sport-btn">
-            <div class="status-badge">● POURED LIVE</div>
-            <i class="fa-solid fa-basketball"></i>
-            <h3>NBA</h3>
+    <div class="sport-menu">
+        <a href="/nba" class="menu-item">
+            <div class="item-header">
+                <span>ON DECK</span>
+                <i class="fa-solid fa-basketball"></i>
+            </div>
+            <div class="item-body">
+                <div class="sport-title">NBA HOOPS</div>
+                <div class="live-ticker">
+                    <div class="ticker-row">
+                        <span class="ticker-label">Today's Slate</span>
+                        <span class="ticker-value">8 Games</span>
+                    </div>
+                    <div class="ticker-row" style="border:none;">
+                        <span class="ticker-label">Prime Matchup</span>
+                        <span class="ticker-value">LAL @ GSW</span>
+                    </div>
+                </div>
+                <div class="btn-enter">Enter Lounge</div>
+            </div>
         </a>
 
-        <a href="/mlb" class="sport-btn">
-            <div class="status-badge">● POURED LIVE</div>
-            <i class="fa-solid fa-baseball-bat-ball"></i>
-            <h3>MLB</h3>
+        <a href="/mlb" class="menu-item">
+            <div class="item-header">
+                <span>ON DECK</span>
+                <i class="fa-solid fa-baseball-bat-ball"></i>
+            </div>
+            <div class="item-body">
+                <div class="sport-title">THE DIAMOND</div>
+                <div class="live-ticker">
+                    <div class="ticker-row">
+                        <span class="ticker-label">Aces Starting</span>
+                        <span class="ticker-value">G. Cole</span>
+                    </div>
+                    <div class="ticker-row" style="border:none;">
+                        <span class="ticker-label">Weather Edge</span>
+                        <span class="ticker-value">Wrigley +12%</span>
+                    </div>
+                </div>
+                <div class="btn-enter">Enter Lounge</div>
+            </div>
         </a>
 
-        <a href="/nhl" class="sport-btn nhl-btn">
-            <div class="status-badge ice">● POURED LIVE</div>
-            <i class="fa-solid fa-hockey-puck"></i>
-            <h3>NHL</h3>
+        <a href="/nhl" class="menu-item">
+            <div class="item-header">
+                <span>ON DECK</span>
+                <i class="fa-solid fa-hockey-puck"></i>
+            </div>
+            <div class="item-body">
+                <div class="sport-title">COLD ICE</div>
+                <div class="live-ticker">
+                    <div class="ticker-row">
+                        <span class="ticker-label">Top Stack</span>
+                        <span class="ticker-value">EDM L1</span>
+                    </div>
+                    <div class="ticker-row" style="border:none;">
+                        <span class="ticker-label">Power Play Rank</span>
+                        <span class="ticker-value">NYR #1</span>
+                    </div>
+                </div>
+                <div class="btn-enter">Enter Lounge</div>
+            </div>
         </a>
     </div>
 
-    <footer class="footer">
-        <p>DRAFT TAP // ANALYTICS ON TAP // v2026.4</p>
+    <footer class="lounge-footer">
+        Premium Lineup Optimization // Established 2026
     </footer>
 </div>
 

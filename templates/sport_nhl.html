@@ -16,18 +16,18 @@
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Oswald:wght@500;700&family=JetBrains+Mono:wght@500;800&display=swap" rel="stylesheet">
 
     <style>
         :root {
             --bg-deep: #020408;
             --bg-card: #0d1117;
-            --neon-green: #00ff85;
             --tap-gold: #ffc107;
             --ice-blue: #22d3ee;
             --border-heavy: #30363d;
             --text-main: #ffffff;
             --text-dim: #b1bac4;
+            --wood-trim: #1c2128;
         }
 
         body {
@@ -50,17 +50,16 @@
             align-items: center;
         }
 
+        /* SIDEBAR & FORMS */
         .sidebar-card {
-            background: #080a0c;
+            background: var(--bg-card);
             padding: 24px;
-            border-radius: 6px;
+            border-radius: 4px;
             border: 1px solid var(--border-heavy);
+            border-top: 3px solid var(--tap-gold);
         }
 
-        .sticky-sidebar {
-            position: sticky;
-            top: 20px;
-        }
+        .sticky-sidebar { position: sticky; top: 20px; }
 
         .form-control, .form-select {
             background-color: #121519 !important;
@@ -68,136 +67,128 @@
             color: #ffffff !important;
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.85rem;
-            border-radius: 4px !important;
+            border-radius: 2px !important;
         }
 
         .btn-optimize {
-            background-color: var(--neon-green);
+            background: linear-gradient(135deg, var(--tap-gold) 0%, #e67e22 100%);
             color: #000;
             border: none;
             padding: 16px;
-            font-weight: 900;
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
             width: 100%;
             text-transform: uppercase;
             letter-spacing: 2px;
             border-radius: 4px;
             transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.2);
         }
 
         .btn-optimize:hover {
-            background-color: #00db72;
             transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 193, 7, 0.4);
+            filter: brightness(1.1);
         }
 
+        /* PLAYER POOL */
         .pool-wrapper {
-            background: #0d1117;
+            background: var(--bg-card);
             border: 1px solid var(--border-heavy);
-            border-radius: 6px;
+            border-radius: 4px;
             overflow: hidden;
-            height: 700px;
+            height: 750px;
             display: flex;
             flex-direction: column;
         }
 
         .pool-header-actions {
-            background: #161b22;
-            padding: 12px 20px;
+            background: var(--wood-trim);
+            padding: 15px 20px;
             border-bottom: 1px solid var(--border-heavy);
         }
 
-        .table-container {
-            flex: 1;
-            overflow-y: auto;
-        }
+        .table-container { flex: 1; overflow-y: auto; }
 
         .pool-table thead th {
             position: sticky;
             top: 0;
             background-color: #161b22;
-            color: var(--text-dim);
+            color: var(--tap-gold);
+            font-family: 'Oswald', sans-serif;
             text-transform: uppercase;
-            font-size: 0.65rem;
-            font-weight: 800;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
             z-index: 10;
             padding: 15px;
             border-bottom: 2px solid var(--border-heavy);
         }
 
+        /* PLAYER CELLS */
         .player-avatar-frame {
             position: relative;
             width: 44px;
             height: 44px;
-            background: #1c2128;
-            border-radius: 50%;
+            background: #000;
+            border-radius: 4px;
             border: 1px solid var(--border-heavy);
             display: flex;
             align-items: flex-end;
             justify-content: center;
         }
 
-        .player-headshot { width: 110%; height: auto; border-radius: 50%; z-index: 1; }
-
-        .team-badge-overlay {
-            position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px;
-            background: #fff; border-radius: 4px; padding: 2px;
-            border: 1px solid var(--border-heavy); z-index: 5;
-            display: flex; align-items: center; justify-content: center;
-        }
-
-        .metric-primary { color: var(--neon-green); font-weight: 800; font-size: 0.85rem; font-family: 'JetBrains Mono'; }
-        .proj-value { color: var(--neon-green); font-weight: 900; font-size: 1.1rem; font-family: 'JetBrains Mono'; }
+        .metric-primary { color: var(--ice-blue); font-weight: 800; font-size: 0.85rem; font-family: 'JetBrains Mono'; }
+        .proj-value { color: #fff; font-weight: 900; font-size: 1.1rem; font-family: 'JetBrains Mono'; }
         .salary-value { color: var(--tap-gold); font-weight: 800; font-family: 'JetBrains Mono'; }
 
-        .game-selector {
-            background: #121519;
+        /* LINEUP CARDS */
+        .lineup-card {
+            background: var(--bg-card);
             border: 1px solid var(--border-heavy);
             border-radius: 4px;
-            max-height: 150px;
-            overflow-y: auto;
-            padding: 10px;
-        }
-
-        .lineup-card {
-            background: #0d1117;
-            border: 1px solid var(--border-heavy);
-            border-radius: 8px;
             overflow: hidden;
             margin-bottom: 20px;
         }
-        .lineup-header { background: #1c2128; border-bottom: 2px solid var(--neon-green); padding: 12px 15px; }
-
-        .slot-badge {
-            background: #21262d; color: #fff; font-family: 'JetBrains Mono';
-            font-weight: 800; font-size: 10px; padding: 4px 8px;
-            border-radius: 4px; text-align: center; display: inline-block; min-width: 45px;
+        .lineup-header {
+            background: var(--wood-trim);
+            border-bottom: 2px solid var(--tap-gold);
+            padding: 12px 15px;
+            font-family: 'Oswald', sans-serif;
         }
 
-        .form-check-input:checked { background-color: var(--neon-green); border-color: var(--neon-green); }
+        .slot-badge {
+            background: #000; color: var(--tap-gold); font-family: 'JetBrains Mono';
+            font-weight: 800; font-size: 10px; padding: 4px 8px;
+            border: 1px solid var(--border-heavy);
+            border-radius: 2px; text-align: center; display: inline-block; min-width: 45px;
+        }
+
+        .form-check-input:checked { background-color: var(--tap-gold); border-color: var(--tap-gold); }
 
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: var(--bg-deep); }
         ::-webkit-scrollbar-thumb { background: var(--border-heavy); border-radius: 10px; }
-        .table-container::-webkit-scrollbar-thumb { background: var(--ice-blue); }
+        .table-container::-webkit-scrollbar-thumb { background: var(--tap-gold); }
     </style>
 </head>
 <body>
 
 <div id="loading-overlay">
-    <div class="spinner-border" style="width: 3rem; height: 3rem; color: var(--ice-blue);" role="status"></div>
-    <h2 class="fw-black text-uppercase mt-4" style="color: var(--text-main); letter-spacing: 5px; font-weight: 900;">POURING ICE</h2>
+    <i class="fa-solid fa-beer-mug-empty fa-spin fa-3x" style="color: var(--tap-gold);"></i>
+    <h2 class="text-uppercase mt-4" style="font-family: 'Oswald'; color: var(--text-main); letter-spacing: 5px;">POURING LINEUPS</h2>
 </div>
 
 <div class="container-fluid py-4 px-lg-5">
     <div class="d-flex align-items-center mb-5">
         <a href="/" style="text-decoration: none; color: inherit;" class="d-flex align-items-center">
-            <i class="fa-solid fa-hockey-puck me-3" style="color: var(--ice-blue); font-size: 1.8rem;"></i>
-            <h2 style="font-family: 'JetBrains Mono', monospace; font-weight: 800; letter-spacing: -1px; margin: 0;">
-                NHL<span style="color: var(--tap-gold); font-weight: 900;">TAP</span>
+            <i class="fa-solid fa-faucet-drip me-3" style="color: var(--tap-gold); font-size: 1.8rem;"></i>
+            <h2 style="font-family: 'Oswald', sans-serif; font-weight: 700; letter-spacing: 1px; margin: 0; text-transform: uppercase;">
+                NHL<span style="color: var(--tap-gold);">TAP</span>
             </h2>
         </a>
         <div class="ms-auto">
-            <span class="badge border text-uppercase px-3" style="color: var(--ice-blue); border-color: var(--ice-blue); font-size: 0.7rem;">
-                ● LIVE SLATE
+            <span class="badge border text-uppercase px-3" style="color: var(--text-dim); border-color: var(--border-heavy); font-family: 'JetBrains Mono'; font-size: 0.7rem;">
+                OFFICE: LEBANON, ME // SLATE: LIVE
             </span>
         </div>
     </div>
@@ -207,7 +198,7 @@
             <div class="col-lg-3">
                 <div class="sticky-sidebar">
                     <div class="sidebar-card shadow mb-4">
-                        <h6 class="text-white fw-black mb-4" style="letter-spacing: 1px; font-size: 0.75rem;">STRATEGY</h6>
+                        <h6 class="text-white fw-bold mb-4" style="font-family: 'Oswald'; letter-spacing: 2px; font-size: 0.9rem;">BAR SPECS</h6>
 
                         <div class="mb-3">
                             <label class="small fw-bold text-dim text-uppercase mb-2 d-block">Stack Config</label>
@@ -216,7 +207,6 @@
                                 <option value="4-3" selected>4-3 (Classic Tournament)</option>
                                 <option value="3-3-2">3-3-2 (Balanced)</option>
                                 <option value="4-4">4-4 (High Risk)</option>
-                                <option value="2-2-2">2-2-2 (Small Slate)</option>
                             </select>
                         </div>
 
@@ -232,12 +222,12 @@
                         </div>
 
                         <div class="mb-4">
-                            <label class="small fw-bold text-dim text-uppercase mb-2 d-block">Filter Games</label>
-                            <div class="game-selector">
+                            <label class="small fw-bold text-dim text-uppercase mb-2 d-block">The Slate</label>
+                            <div class="game-selector" style="background: #000; border: 1px solid var(--border-heavy); padding: 10px; max-height: 200px; overflow-y: auto;">
                                 {% for game in games %}
                                 <div class="form-check mb-1">
                                     <input class="form-check-input" type="checkbox" name="games" value="{{ game.id }}" id="game-{{ loop.index }}" checked>
-                                    <label class="form-check-label text-white small" for="game-{{ loop.index }}" style="font-size: 11px;">
+                                    <label class="form-check-label text-white small" for="game-{{ loop.index }}" style="font-size: 11px; font-family: 'JetBrains Mono';">
                                         {{ game.display }}
                                     </label>
                                 </div>
@@ -245,7 +235,7 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-optimize">Optimize Slate</button>
+                        <button type="submit" class="btn btn-optimize">Pull the Tap</button>
                     </div>
                 </div>
             </div>
@@ -255,7 +245,7 @@
                     <div class="pool-header-actions">
                         <div class="input-group">
                             <span class="input-group-text bg-transparent border-0 text-dim"><i class="fa-solid fa-magnifying-glass"></i></span>
-                            <input type="text" id="playerSearch" class="form-control border-0 shadow-none" placeholder="Search player or team...">
+                            <input type="text" id="playerSearch" class="form-control border-0 shadow-none" placeholder="Filter the tap (player or team)...">
                         </div>
                     </div>
 
@@ -265,7 +255,7 @@
                                 <tr>
                                     <th>Player</th>
                                     <th>Matchup</th>
-                                    <th>Value</th>
+                                    <th>Edge</th>
                                     <th class="text-end">Proj</th>
                                     <th class="text-end">Salary</th>
                                     <th class="text-center">Lock</th>
@@ -273,15 +263,12 @@
                             </thead>
                             <tbody>
                                 {% for p in pool %}
-                                <tr class="player-row" style="border-bottom: 1px solid #1c2128;">
+                                <tr class="player-row" style="border-bottom: 1px solid #1c2128; vertical-align: middle;">
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="player-avatar-frame me-3">
-                                                <img src="{{ p.Player_Image }}" class="player-headshot" loading="lazy"
+                                                <img src="{{ p.Player_Image }}" class="player-headshot" style="width: 100%; height: auto;" loading="lazy"
                                                      onerror="this.onerror=null;this.src='https://a.espncdn.com/i/headshots/nhl/players/full/0.png';">
-                                                <div class="team-badge-overlay">
-                                                    <img src="{{ p.Logo }}" style="width: 100%; height: auto; max-height: 14px;">
-                                                </div>
                                             </div>
                                             <div>
                                                 <div class="fw-bold text-white player-name" style="font-size: 0.9rem;">{{ p.Player }}</div>
@@ -291,12 +278,8 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td>
-                                        <div class="small fw-bold" style="font-family: 'JetBrains Mono';">
-                                            {{ p.Match_Display }}
-                                        </div>
-                                    </td>
-                                    <td><div class="metric-primary">VAL: {{ (p.Proj / (p.Salary / 1000 + 0.1)) | round(2) }}x</div></td>
+                                    <td><div class="small fw-bold" style="font-family: 'JetBrains Mono'; font-size: 11px;">{{ p.Match_Display }}</div></td>
+                                    <td><div class="metric-primary">{{ (p.Proj / (p.Salary / 1000 + 0.1)) | round(2) }}x</div></td>
                                     <td class="text-end"><span class="proj-value">{{ p.Proj }}</span></td>
                                     <td class="text-end"><span class="salary-value">${{ "{:,.0f}".format(p.Salary) }}</span></td>
                                     <td class="text-center">
@@ -311,14 +294,14 @@
 
                 {% if results %}
                 <div id="results-target">
-                    <h3 class="fw-black mb-4" style="color: var(--neon-green); letter-spacing: 2px; font-weight: 900;">ICE RESULTS</h3>
+                    <h3 class="fw-bold mb-4" style="font-family: 'Oswald'; color: var(--tap-gold); letter-spacing: 2px; text-transform: uppercase;">The High-Value Pour</h3>
                     <div class="row g-4">
                         {% for lineup in results %}
                         <div class="col-md-6 col-xl-4">
-                            <div class="lineup-card shadow">
+                            <div class="lineup-card">
                                 <div class="lineup-header d-flex justify-content-between align-items-center">
-                                    <span class="fw-bold text-dim small">SLOT #{{ loop.index }}</span>
-                                    <span class="fw-bold" style="color: var(--neon-green);">{{ lineup.total_projection }} <small style="font-size: 9px;">FPTS</small></span>
+                                    <span class="text-dim small" style="letter-spacing: 1px;">LINEUP #{{ loop.index }}</span>
+                                    <span class="fw-bold" style="color: var(--tap-gold);">{{ lineup.total_projection }} <small style="font-size: 10px; color: #fff;">FPTS</small></span>
                                 </div>
                                 <table class="table table-dark table-sm mb-0">
                                     <tbody>
@@ -335,7 +318,7 @@
                                         </tr>
                                         {% endfor %}
                                         <tr style="background: #000;">
-                                            <td colspan="2" class="ps-3 py-2 text-dim text-uppercase" style="font-size: 9px;">Cap Used</td>
+                                            <td colspan="2" class="ps-3 py-2 text-dim text-uppercase" style="font-size: 9px;">Draft Tab Cost</td>
                                             <td class="text-end pe-3 py-2 fw-bold text-white" style="font-size: 11px;">${{ "{:,.0f}".format(lineup.total_salary) }}</td>
                                         </tr>
                                     </tbody>
@@ -352,24 +335,17 @@
 </div>
 
 <script>
-    // Loading overlay
     document.getElementById('opt-form').addEventListener('submit', function() {
         document.getElementById('loading-overlay').style.display = 'flex';
     });
 
-    // Client-side search filtering
     document.getElementById('playerSearch').addEventListener('keyup', function() {
         let filter = this.value.toUpperCase();
         let rows = document.querySelectorAll('#poolTable .player-row');
-
         rows.forEach(row => {
             let name = row.querySelector('.player-name').innerText;
             let team = row.querySelector('.team-tag').innerText;
-            if (name.toUpperCase().indexOf(filter) > -1 || team.toUpperCase().indexOf(filter) > -1) {
-                row.style.display = "";
-            } else {
-                row.style.display = "none";
-            }
+            row.style.display = (name.toUpperCase().includes(filter) || team.toUpperCase().includes(filter)) ? "" : "none";
         });
     });
 </script>
