@@ -59,6 +59,22 @@
             top: 20px;
         }
 
+        /* --- COMMAND CENTER CONTRAST FIX --- */
+        .sidebar-card label {
+            color: var(--electric-blue) !important;
+            letter-spacing: 1.5px;
+            font-weight: 800;
+            font-size: 0.65rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .form-check-label.text-white {
+            color: #ffffff !important;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
         .form-control {
             background-color: #121519 !important;
             border: 1px solid #3f444d !important;
@@ -94,7 +110,7 @@
             border: 1px solid var(--border-heavy);
             border-radius: 6px;
             overflow: hidden;
-            height: 650px;
+            height: 700px;
             display: flex;
             flex-direction: column;
         }
@@ -132,7 +148,7 @@
         }
 
         .player-headshot {
-            width: 110%; /* Slightly larger to fit the circular frame well */
+            width: 110%;
             height: auto;
             border-radius: 50%;
             z-index: 1;
@@ -152,8 +168,18 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.8);
         }
 
-        .metric-primary { color: var(--neon-green); font-weight: 800; font-size: 0.85rem; font-family: 'JetBrains Mono'; }
-        .metric-secondary { color: var(--text-dim); font-size: 0.7rem; font-family: 'JetBrains Mono'; opacity: 0.7; }
+        /* --- LINE/PP BADGES --- */
+        .nhl-badge {
+            font-family: 'JetBrains Mono';
+            font-size: 10px;
+            font-weight: 800;
+            min-width: 28px;
+            padding: 4px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+        .bg-line { background: #21262d; color: var(--text-main); border: 1px solid var(--border-heavy); }
+        .bg-pp { background: rgba(255, 193, 7, 0.1); color: var(--tap-gold); border: 1px solid var(--tap-gold); }
 
         .proj-value { color: var(--neon-green); font-weight: 900; font-size: 1.1rem; font-family: 'JetBrains Mono'; }
         .salary-value { color: var(--tap-gold); font-weight: 800; font-family: 'JetBrains Mono'; }
@@ -206,25 +232,25 @@
     <div class="row g-4">
         <div class="col-lg-3">
             <div class="sidebar-card shadow">
-                <h6 class="text-white fw-black mb-4" style="letter-spacing: 1px; font-size: 0.75rem;">COMMAND CENTER</h6>
+                <h6 class="text-white fw-black mb-4" style="letter-spacing: 2px; font-size: 0.8rem; border-bottom: 1px solid var(--border-heavy); padding-bottom: 10px;">COMMAND CENTER</h6>
                 <form method="POST" id="opt-form">
                     <div class="mb-4">
-                        <label class="small fw-bold text-dim text-uppercase mb-2 d-block">Lineups</label>
+                        <label class="d-block">Lineups</label>
                         <input type="number" name="num_lineups" class="form-control" value="10">
                     </div>
 
                     <div class="mb-4">
-                        <label class="small fw-bold text-dim text-uppercase mb-2 d-block">Diversity</label>
+                        <label class="d-block">Diversity</label>
                         <input type="number" name="diversity" class="form-control" value="4">
                     </div>
 
                     <div class="mb-4">
-                        <label class="small fw-bold text-dim text-uppercase mb-2 d-block">Game Slate</label>
+                        <label class="d-block">Game Slate</label>
                         <div class="p-2 rounded" style="background: #0d1117; border: 1px solid var(--border-heavy); max-height: 180px; overflow-y: auto;">
                             {% for g in games %}
-                            <div class="form-check small mb-1">
-                                <input class="form-check-input" type="checkbox" name="games" value="{{ g.id }}" checked>
-                                <label class="form-check-label text-white" style="font-size: 11px;">{{ g.display }}</label>
+                            <div class="form-check small mb-1 d-flex align-items-center">
+                                <input class="form-check-input me-2" type="checkbox" name="games" value="{{ g.id }}" id="check-{{ loop.index }}" checked>
+                                <label class="form-check-label text-white" for="check-{{ loop.index }}" style="font-size: 11px;">{{ g.display }}</label>
                             </div>
                             {% endfor %}
                         </div>
@@ -242,8 +268,9 @@
                         <thead>
                             <tr>
                                 <th>Player</th>
+                                <th class="text-center">Line</th>
+                                <th class="text-center">PP</th>
                                 <th>Matchup</th>
-                                <th>Adv Metrics</th>
                                 <th class="text-end">Proj</th>
                                 <th class="text-end">Salary</th>
                                 <th class="text-center">Lock</th>
@@ -258,8 +285,7 @@
                                             <img src="{{ p.Player_Image }}"
                                                  class="player-headshot"
                                                  loading="lazy"
-                                                 onerror="this.onerror=null;this.src='https://a.espncdn.com/i/headshots/nba/players/full/0.png';">
-
+                                                 onerror="this.onerror=null;this.src='https://a.espncdn.com/i/headshots/nhl/players/full/0.png';">
                                             <div class="team-badge-overlay">
                                                 <img src="{{ p.Logo }}" style="width: 100%; height: auto; display: block;">
                                             </div>
@@ -272,6 +298,16 @@
                                         </div>
                                     </div>
                                 </td>
+                                <td class="text-center">
+                                    <span class="nhl-badge bg-line">L{{ p.Line }}</span>
+                                </td>
+                                <td class="text-center">
+                                    {% if p.PP != "-" %}
+                                    <span class="nhl-badge bg-pp">P{{ p.PP }}</span>
+                                    {% else %}
+                                    <span class="text-dim opacity-25">-</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <div class="fw-bold small" style="letter-spacing: 0.5px; font-family: 'JetBrains Mono';">
                                         {% set matchup_parts = p.Match_Display.split(' @ ') %}
@@ -283,10 +319,6 @@
                                             {{ p.Match_Display }}
                                         {% endif %}
                                     </div>
-                                </td>
-                                <td>
-                                    <div class="metric-primary">{{ p.Primary_Stat }}</div>
-                                    <div class="metric-secondary">{{ p.Secondary_Stat }}</div>
                                 </td>
                                 <td class="text-end"><span class="proj-value">{{ p.Proj }}</span></td>
                                 <td class="text-end"><span class="salary-value">${{ "{:,.0f}".format(p.Salary) }}</span></td>
@@ -307,7 +339,7 @@
                     {% for lineup in results %}
                     <div class="col-md-6 col-xl-4">
                         <div class="lineup-card shadow">
-                            <div class="lineup-header d-flex justify-content-between">
+                            <div class="lineup-header d-flex justify-content-between align-items-center">
                                 <span class="fw-bold text-dim small">ENTRY #{{ loop.index }}</span>
                                 <span class="fw-bold" style="color: var(--neon-green);">{{ lineup.total_projection }} <small style="font-size: 9px;">FPTS</small></span>
                             </div>

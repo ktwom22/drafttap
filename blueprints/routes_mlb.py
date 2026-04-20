@@ -167,7 +167,7 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
 
 @mlb_bp.route('/', methods=['GET', 'POST'])
 def index():
-    weather = get_mlb_weather_data()  # Ensure this returns 'wind_speed' and 'wind_direction'
+    weather = get_mlb_weather_data()
     espn = get_espn_game_info()
     h_fg, p_fg = get_weighted_stats()
     df_raw = get_df_raw()
@@ -175,12 +175,26 @@ def index():
 
     pool_ui, game_map = [], {}
     for idx, row in df_raw.iterrows():
+        # --- FIX STARTS HERE ---
+        # 1. Skip rows where the player name is empty or not a string
+        player_name = row.get('Player')
+        if pd.isna(player_name) or not isinstance(player_name, str) or player_name.strip() == "":
+            continue
+
         is_p = 'P' in str(row['POS'])
         stats_df = p_fg if is_p else h_fg
 
-        # Fuzzy Match Advanced Stats
-        match = process.extractOne(row['Player'], stats_df['full_name'].tolist(), scorer=fuzz.token_set_ratio)
-        adv = stats_df[stats_df['full_name'] == match[0]].iloc[0] if match and match[1] >= 80 else {}
+        # 2. Ensure our lookup list only contains strings to avoid the TypeError
+        choices = [str(n) for n in stats_df['full_name'].dropna().tolist()]
+
+        try:
+            # Fuzzy Match Advanced Stats
+            match = process.extractOne(player_name, choices, scorer=fuzz.token_set_ratio)
+            adv = stats_df[stats_df['full_name'] == match[0]].iloc[0] if match and match[1] >= 80 else {}
+        except Exception as e:
+            print(f"Fuzzy match error for {player_name}: {e}")
+            adv = {}
+        # --- FIX ENDS HERE ---
 
         t1, t2 = TEAM_MAP.get(str(row['Team']), str(row['Team'])), TEAM_MAP.get(str(row['Opponent']),
                                                                                 str(row['Opponent']))
@@ -192,8 +206,8 @@ def index():
             'Match_Display': g_id,
             'Weather_Short': f"{w.get('temp', '--')}°",
             'W_Icon': "🏟️" if "dome" in str(w.get('condition', '')).lower() else "☀️",
-            'Wind_Speed': w.get('wind_speed', '0'),  # CRITICAL FOR UI
-            'Wind_Direction': w.get('wind_direction', ''),  # CRITICAL FOR UI
+            'Wind_Speed': w.get('wind_speed', '0'),
+            'Wind_Direction': w.get('wind_direction', ''),
             'Logo': get_logo_url(row['Team']),
             'Proj': round(row['Proj_Base'], 1),
             'Primary_Stat': f"WHIP: {adv.get('WHIP', 0):.2f}" if is_p else f"ISO: {adv.get('ISO', 0):.3f}",

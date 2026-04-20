@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request
 import pandas as pd
 import pulp
 import random
+import re
 from helpers.nhl_helpers import (
     get_nhl_logo_url,
     get_nhl_matchup_info,
@@ -75,20 +76,16 @@ def run_nhl_optimizer(df, num_lineups=1, diversity=3, min_punts=1, exposure_limi
         if stack_config and "-" in stack_config:
             sizes = [int(s) for s in stack_config.split('-')]
             teams = df['Team'].unique()
-            # Binary indicator: does team T fulfill stack requirement of size S?
             t_stack = pulp.LpVariable.dicts("t_stack", (teams, sizes), cat="Binary")
 
             for size in sizes:
-                # Ensure exactly one team is chosen for this specific stack size
                 prob += pulp.lpSum([t_stack[t][size] for t in teams]) == 1
                 for t in teams:
                     t_idx = df[df['Team'] == t].index.tolist()
-                    # Goalies don't count towards the skater stack
                     prob += pulp.lpSum([x[p][s] for p in t_idx for s in NHL_SLOTS if s != 'G']) >= size * t_stack[t][
                         size]
 
         # --- GOALIE ANTI-CORRELATION ---
-        # Prevent playing shooters against your own goalie
         for p in players:
             if 'G' in str(df.loc[p, 'POS']):
                 opp = df.loc[p, 'Opponent']
@@ -129,9 +126,18 @@ def index():
         for _, row in df_raw.iterrows():
             try:
                 raw_str = str(row.iloc[0])
-                name = raw_str.split('·')[0].split('$')[0].strip()
-                # Correcting name for common 'Injury' prefixing in raw strings
-                if "DTD" in name: name = name.replace("DTD", "").strip()
+
+                # 1. Extraction: Get the name part
+                name_part = raw_str.split('·')[0].split('$')[0].strip()
+
+                # 2. Cleanup: Remove trailing Position/Rank letters and digits (e.g., "W11", "D1")
+                # This ensures the helper looks up "Cale Makar" instead of "Cale Makar D11"
+                name = re.sub(r'\s[A-Z]\d+$', '', name_part).strip()
+
+                # 3. Cleanup: Strip out common injury/status tags
+                for tag in ["DTD", "IR", "O", "OUT"]:
+                    if name.endswith(tag):
+                        name = name[:-len(tag)].strip()
 
                 salary_val = raw_str.split('$')[1].split(' ')[0].replace(',', '') if '$' in raw_str else "0"
                 proj_val = raw_str.split('FPTS')[1].strip().split(' ')[0] if 'FPTS' in raw_str else "0"

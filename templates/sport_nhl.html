@@ -99,6 +99,12 @@
             flex-direction: column;
         }
 
+        .pool-header-actions {
+            background: #161b22;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-heavy);
+        }
+
         .table-container {
             flex: 1;
             overflow-y: auto;
@@ -130,9 +136,12 @@
         }
 
         .player-headshot { width: 110%; height: auto; border-radius: 50%; z-index: 1; }
+
         .team-badge-overlay {
             position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px;
-            background: #fff; border-radius: 4px; padding: 2px; border: 1px solid var(--border-heavy); z-index: 5;
+            background: #fff; border-radius: 4px; padding: 2px;
+            border: 1px solid var(--border-heavy); z-index: 5;
+            display: flex; align-items: center; justify-content: center;
         }
 
         .metric-primary { color: var(--neon-green); font-weight: 800; font-size: 0.85rem; font-family: 'JetBrains Mono'; }
@@ -243,8 +252,15 @@
 
             <div class="col-lg-9">
                 <div class="pool-wrapper mb-5 shadow-lg">
+                    <div class="pool-header-actions">
+                        <div class="input-group">
+                            <span class="input-group-text bg-transparent border-0 text-dim"><i class="fa-solid fa-magnifying-glass"></i></span>
+                            <input type="text" id="playerSearch" class="form-control border-0 shadow-none" placeholder="Search player or team...">
+                        </div>
+                    </div>
+
                     <div class="table-container">
-                        <table class="table table-dark mb-0 pool-table">
+                        <table class="table table-dark mb-0 pool-table" id="poolTable">
                             <thead>
                                 <tr>
                                     <th>Player</th>
@@ -257,19 +273,19 @@
                             </thead>
                             <tbody>
                                 {% for p in pool %}
-                                <tr style="border-bottom: 1px solid #1c2128;">
+                                <tr class="player-row" style="border-bottom: 1px solid #1c2128;">
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="player-avatar-frame me-3">
                                                 <img src="{{ p.Player_Image }}" class="player-headshot" loading="lazy"
                                                      onerror="this.onerror=null;this.src='https://a.espncdn.com/i/headshots/nhl/players/full/0.png';">
                                                 <div class="team-badge-overlay">
-                                                    <img src="{{ p.Logo }}" style="width: 100%; height: auto;">
+                                                    <img src="{{ p.Logo }}" style="width: 100%; height: auto; max-height: 14px;">
                                                 </div>
                                             </div>
                                             <div>
-                                                <div class="fw-bold text-white" style="font-size: 0.9rem;">{{ p.Player }}</div>
-                                                <div class="small text-dim" style="font-size: 10px; font-family: 'JetBrains Mono';">
+                                                <div class="fw-bold text-white player-name" style="font-size: 0.9rem;">{{ p.Player }}</div>
+                                                <div class="small text-dim team-tag" style="font-size: 10px; font-family: 'JetBrains Mono';">
                                                     <span style="color: var(--ice-blue);">{{ p.POS }}</span> · {{ p.Team }}
                                                 </div>
                                             </div>
@@ -336,8 +352,25 @@
 </div>
 
 <script>
+    // Loading overlay
     document.getElementById('opt-form').addEventListener('submit', function() {
         document.getElementById('loading-overlay').style.display = 'flex';
+    });
+
+    // Client-side search filtering
+    document.getElementById('playerSearch').addEventListener('keyup', function() {
+        let filter = this.value.toUpperCase();
+        let rows = document.querySelectorAll('#poolTable .player-row');
+
+        rows.forEach(row => {
+            let name = row.querySelector('.player-name').innerText;
+            let team = row.querySelector('.team-tag').innerText;
+            if (name.toUpperCase().indexOf(filter) > -1 || team.toUpperCase().indexOf(filter) > -1) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
     });
 </script>
 </body>

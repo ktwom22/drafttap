@@ -1,18 +1,16 @@
 import requests
-from rapidfuzz import process  # pip install rapidfuzz
 
 
 def get_dynamic_nhl_ids():
     """
     Fetches all active NHL players from ESPN's API and returns a name-to-id map.
-    Uses a session for faster connection pooling.
+    Essential for mapping cleaned player names to headshot IDs.
     """
     id_map = {}
-    session = requests.Session()
     try:
-        # Step 1: Get all NHL teams in one shot
+        # Step 1: Get all NHL teams
         teams_url = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams?limit=100"
-        teams_response = session.get(teams_url, timeout=5)
+        teams_response = requests.get(teams_url, timeout=5)
         teams_data = teams_response.json()
 
         teams_list = teams_data.get('sports', [{}])[0].get('leagues', [{}])[0].get('teams', [])
@@ -21,7 +19,7 @@ def get_dynamic_nhl_ids():
             team_id = team_entry['team']['id']
             # Step 2: Fetch the roster for each team
             roster_url = f"https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/{team_id}/roster"
-            roster_response = session.get(roster_url, timeout=5)
+            roster_response = requests.get(roster_url, timeout=5)
             roster_data = roster_response.json()
 
             # Step 3: Map athlete names to their IDs
@@ -31,50 +29,30 @@ def get_dynamic_nhl_ids():
                 if name and athlete_id:
                     id_map[name] = str(athlete_id)
 
-        print(f"--- SUCCESS: Mapped {len(id_map)} NHL Headshots ---")
     except Exception as e:
         print(f"Error fetching dynamic NHL IDs: {e}")
+
     return id_map
-
-
-def get_nhl_headshot_url(player_name, id_map):
-    """
-    Tries exact match first, then fuzzy match, then fallback.
-    """
-    if not player_name or str(player_name).lower() == 'nan':
-        return "https://a.espncdn.com/i/headshots/nhl/players/full/0.png"
-
-    name_str = str(player_name).strip()
-
-    # 1. Try Exact Match
-    if name_str in id_map:
-        return f"https://a.espncdn.com/i/headshots/nhl/players/full/{id_map[name_str]}.png"
-
-    # 2. Try Fuzzy Match (85% similarity threshold)
-    # This helps with "Alex" vs "Alexander" or "N. MacKinnon" vs "Nathan MacKinnon"
-    all_names = list(id_map.keys())
-    if all_names:
-        match = process.extractOne(name_str, all_names, score_cutoff=85)
-        if match:
-            matched_name = match[0]
-            return f"https://a.espncdn.com/i/headshots/nhl/players/full/{id_map[matched_name]}.png"
-
-    # 3. Fallback to silhouette
-    return "https://a.espncdn.com/i/headshots/nhl/players/full/0.png"
 
 
 def get_nhl_logo_url(team_abbrev):
     """
-    Returns the high-res transparent logo URL from ESPN.
+    Returns the high-res transparent logo URL from ESPN's CDN for NHL.
     """
     if not team_abbrev or str(team_abbrev).lower() == 'nan':
         return "https://www.draftkings.com/favicon.ico"
 
-    # Standard DFS -> ESPN Abbreviation Mapping
+    # Common discrepancies between DK and ESPN abbreviations
     mapping = {
-        'SJ': 'SJS', 'TB': 'TBL', 'LA': 'LAK', 'NJ': 'NJD',
-        'WAS': 'WSH', 'CBJ': 'CLB', 'NAS': 'NSH', 'VGS': 'VGK',
-        'MON': 'MTL', 'OTT': 'OTT', 'CAL': 'CGY'
+        'VEG': 'VGK',  # Vegas Golden Knights
+        'WAS': 'WSH',  # Washington Capitals
+        'SJ': 'SJS',  # San Jose Sharks
+        'NJ': 'NJD',  # New Jersey Devils
+        'TB': 'TBL',  # Tampa Bay Lightning
+        'LA': 'LAK',  # Los Angeles Kings
+        'OTT': 'OTT',
+        'MON': 'MTL',  # Montreal Canadiens
+        'CLB': 'CBJ'  # Columbus Blue Jackets
     }
 
     clean_abbrev = str(team_abbrev).upper().strip()
@@ -85,21 +63,33 @@ def get_nhl_logo_url(team_abbrev):
 
 def get_nhl_matchup_info(df_row):
     """
-    Returns a consistent AWAY @ HOME string based on row data.
+    Returns a consistent AWAY @ HOME string for NHL.
     """
-    # Ensure we are looking at strings
-    team = str(df_row.get('Team', 'TBD')).upper().strip()
-    opp = str(df_row.get('Opponent', 'TBD')).upper().strip()
+    team = str(df_row.get('Team', '')).upper()
+    opp = str(df_row.get('Opponent', '')).upper()
 
-    # Check for home/away indicators in the sheet
-    location = str(df_row.get('LOCATION', '')).lower()
-    is_home = df_row.get('IS_HOME', None)
+    # If your CSV uses the '@' or 'vs' indicator in a 'Matchup' column
+    matchup_raw = str(df_row.get('Matchup', ''))
 
-    if location == 'home' or is_home is True:
-        return f"{opp} @ {team}"
-    elif location == 'away' or is_home is False:
-        return f"{team} @ {opp}"
+    if '@' in matchup_raw:
+        return matchup_raw  # Use the provided matchup if it exists
 
-    # Alphabetical fallback if no location data exists
+    # Fallback to alphabetical sorting to ensure consistency across both team perspectives
     teams = sorted([team, opp])
     return f"{teams[0]} @ {teams[1]}"
+
+
+def get_nhl_headshot_url(player_name, id_map):
+    """
+    Look up the player ID from the dynamic map and return the ESPN headshot URL.
+    Defaults to 0.png (silhouette) if name not found.
+    """
+    player_id = id_map.get(player_name, "0")
+
+    try:
+        if not player_id or str(player_id) == '0':
+            return "https://a.espncdn.com/i/headshots/nhl/players/full/0.png"
+
+        return f"https://a.espncdn.com/i/headshots/nhl/players/full/{player_id}.png"
+    except Exception:
+        return "https://a.espncdn.com/i/headshots/nhl/players/full/0.png"
