@@ -9,3 +9,4 @@ unidecode
 mlb-statsapi
 nba-api
 gunicorn
+Flask-Caching redis

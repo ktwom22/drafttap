@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, current_app
 import pandas as pd
 import pulp
 import random
@@ -35,7 +35,6 @@ def get_df_raw():
         df = pd.read_csv(sync_url)
         df.columns = df.columns.str.strip()
 
-        # Salary & Projection Normalization
         for col, target in [('salary', 'Salary'), ('proj', 'Proj_Base')]:
             found = next((c for c in df.columns if col in c.lower()), None)
             df[target] = pd.to_numeric(df[found].astype(str).replace(r'[^0-9.]', '', regex=True),
@@ -44,12 +43,10 @@ def get_df_raw():
         if 0 < df['Salary'].max() < 1000: df['Salary'] *= 1000
         df.loc[(df['Proj_Base'] <= 0.1) & (df['Salary'] > 0), 'Proj_Base'] = 5.0
 
-        # Batting Order & Position
         order_col = next((c for c in df.columns if any(x in c.lower() for x in ['order', 'batting', 'bat  ✓'])), None)
         df['Order'] = df[order_col].astype(str).str.extract('(\d+)').fillna(0).astype(int) if order_col else 0
         df['POS'] = df['POS'].astype(str).str.upper().fillna('UTIL')
 
-        # Handedness
         hand_col = next((c for c in df.columns if 'hand' in c.lower()), None)
         df['CleanHand'] = df[hand_col].apply(clean_hand_str) if hand_col else '?'
 
@@ -79,7 +76,6 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
             if team in confirmed_teams:
                 if order == 0: return 0.0
                 proj *= (1.20 if order <= 2 else 1.10 if order <= 5 else 0.95)
-            # Platoon Logic
             b_h, o_h = row['CleanHand'], p_hand_map.get(row['Opponent'], '?')
             if b_h == 'S' or (b_h == 'L' and o_h == 'R') or (b_h == 'R' and o_h == 'L'):
                 proj *= 1.12
@@ -110,7 +106,6 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                 prob += pulp.lpSum([x[p][s] for s in SLOTS]) <= 1
                 if eligible.loc[p, 'Player'] in locks: prob += pulp.lpSum([x[p][s] for s in SLOTS]) == 1
 
-                # Position Eligibility
                 pos = str(eligible.loc[p, 'POS'])
                 for s in SLOTS:
                     if (s.startswith('P') and 'P' not in pos) or \
@@ -122,13 +117,10 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                             (s.startswith('OF') and not any(x in pos for x in ['OF', 'LF', 'CF', 'RF'])):
                         prob += x[p][s] == 0
 
-            # Stacking
-            team_hitters = eligible[
-                (eligible['Team'] == current_team) & (~eligible['POS'].str.contains('P'))].index.tolist()
+            team_hitters = eligible[(eligible['Team'] == current_team) & (~eligible['POS'].str.contains('P'))].index.tolist()
             if len(team_hitters) >= min_stack:
                 prob += pulp.lpSum([x[p][s] for p in team_hitters for s in SLOTS]) >= min_stack
 
-            # Diversity
             for past in used_player_indices:
                 prob += pulp.lpSum([x[p][s] for p in past for s in SLOTS]) <= (len(SLOTS) - diversity)
 
@@ -150,8 +142,8 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                                     'Matchup_Hand': f"{r['CleanHand']} v {p_hand_map.get(r['Opponent'], '?')}",
                                     'SortKey': POS_ORDER[s]
                                 })
-                                p_indices.append(p);
-                                t_sal += r['Salary'];
+                                p_indices.append(p)
+                                t_sal += r['Salary']
                                 t_proj += r['Proj_Base']
                     l_players.sort(key=lambda x: x['SortKey'])
                     best_lineup = {'players': l_players, 'total_salary': t_sal, 'total_projection': round(t_proj, 2),
@@ -167,70 +159,68 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
 
 @mlb_bp.route('/', methods=['GET', 'POST'])
 def index():
-    weather = get_mlb_weather_data()
-    espn = get_espn_game_info()
-    h_fg, p_fg = get_weighted_stats()
-    df_raw = get_df_raw()
-    if df_raw.empty: return "Data Unavailable", 500
+    # Wrap the entire logic in a cache decorator to keep load times near-zero for repeat users
+    @current_app.cache.cached(timeout=300, query_string=True)
+    def cached_view():
+        weather = get_mlb_weather_data()
+        espn = get_espn_game_info()
+        h_fg, p_fg = get_weighted_stats()
+        df_raw = get_df_raw()
+        if df_raw.empty: return "Data Unavailable", 500
 
-    pool_ui, game_map = [], {}
-    for idx, row in df_raw.iterrows():
-        # --- FIX STARTS HERE ---
-        # 1. Skip rows where the player name is empty or not a string
-        player_name = row.get('Player')
-        if pd.isna(player_name) or not isinstance(player_name, str) or player_name.strip() == "":
-            continue
+        pool_ui, game_map = [], {}
+        for idx, row in df_raw.iterrows():
+            player_name = row.get('Player')
+            if pd.isna(player_name) or not isinstance(player_name, str) or player_name.strip() == "":
+                continue
 
-        is_p = 'P' in str(row['POS'])
-        stats_df = p_fg if is_p else h_fg
+            is_p = 'P' in str(row['POS'])
+            stats_df = p_fg if is_p else h_fg
+            choices = [str(n) for n in stats_df['full_name'].dropna().tolist()]
 
-        # 2. Ensure our lookup list only contains strings to avoid the TypeError
-        choices = [str(n) for n in stats_df['full_name'].dropna().tolist()]
+            try:
+                match = process.extractOne(player_name, choices, scorer=fuzz.token_set_ratio)
+                adv = stats_df[stats_df['full_name'] == match[0]].iloc[0] if match and match[1] >= 80 else {}
+            except Exception as e:
+                adv = {}
 
-        try:
-            # Fuzzy Match Advanced Stats
-            match = process.extractOne(player_name, choices, scorer=fuzz.token_set_ratio)
-            adv = stats_df[stats_df['full_name'] == match[0]].iloc[0] if match and match[1] >= 80 else {}
-        except Exception as e:
-            print(f"Fuzzy match error for {player_name}: {e}")
-            adv = {}
-        # --- FIX ENDS HERE ---
+            t1, t2 = TEAM_MAP.get(str(row['Team']), str(row['Team'])), TEAM_MAP.get(str(row['Opponent']),
+                                                                                    str(row['Opponent']))
+            g_id = " vs ".join(sorted([t1, t2]))
+            w = weather.get(g_id, {})
 
-        t1, t2 = TEAM_MAP.get(str(row['Team']), str(row['Team'])), TEAM_MAP.get(str(row['Opponent']),
-                                                                                str(row['Opponent']))
-        g_id = " vs ".join(sorted([t1, t2]))
-        w = weather.get(g_id, {})
+            p_data = row.to_dict()
+            p_data.update({
+                'Match_Display': g_id,
+                'Weather_Short': f"{w.get('temp', '--')}°",
+                'W_Icon': "🏟️" if "dome" in str(w.get('condition', '')).lower() else "☀️",
+                'Wind_Speed': w.get('wind_speed', '0'),
+                'Wind_Direction': w.get('wind_direction', ''),
+                'Logo': get_logo_url(row['Team']),
+                'Proj': round(row['Proj_Base'], 1),
+                'Primary_Stat': f"WHIP: {adv.get('WHIP', 0):.2f}" if is_p else f"ISO: {adv.get('ISO', 0):.3f}",
+                'Secondary_Stat': f"K/9: {adv.get('K/9', 0):.1f}" if is_p else f"wRC+: {int(adv.get('wRC+', 0))}"
+            })
+            pool_ui.append(p_data)
 
-        p_data = row.to_dict()
-        p_data.update({
-            'Match_Display': g_id,
-            'Weather_Short': f"{w.get('temp', '--')}°",
-            'W_Icon': "🏟️" if "dome" in str(w.get('condition', '')).lower() else "☀️",
-            'Wind_Speed': w.get('wind_speed', '0'),
-            'Wind_Direction': w.get('wind_direction', ''),
-            'Logo': get_logo_url(row['Team']),
-            'Proj': round(row['Proj_Base'], 1),
-            'Primary_Stat': f"WHIP: {adv.get('WHIP', 0):.2f}" if is_p else f"ISO: {adv.get('ISO', 0):.3f}",
-            'Secondary_Stat': f"K/9: {adv.get('K/9', 0):.1f}" if is_p else f"wRC+: {int(adv.get('wRC+', 0))}"
-        })
-        pool_ui.append(p_data)
+            if g_id not in game_map:
+                info = espn.get(g_id, {'time_str': 'TBD', 'raw_time': datetime.max.replace(tzinfo=pytz.utc)})
+                game_map[g_id] = {'id': g_id, 'display': g_id, 'time': info['time_str'], 'sort': info['raw_time']}
 
-        if g_id not in game_map:
-            info = espn.get(g_id, {'time_str': 'TBD', 'raw_time': datetime.max.replace(tzinfo=pytz.utc)})
-            game_map[g_id] = {'id': g_id, 'display': g_id, 'time': info['time_str'], 'sort': info['raw_time']}
+        results, status = None, "MLB SYSTEMS ONLINE"
+        if request.method == 'POST':
+            results = run_optimizer(
+                df_raw,
+                num_lineups=int(request.form.get('num_lineups', 5)),
+                locks=request.form.getlist('player_locks'),
+                stack_team=request.form.get('stack_team'),
+                min_stack=int(request.form.get('min_stack', 5)),
+                diversity=int(request.form.get('diversity', 4))
+            )
+            status = f"SUCCESS: {len(results)} LINEUPS" if results else "FAILED"
 
-    results, status = None, "READY"
-    if request.method == 'POST':
-        results = run_optimizer(
-            df_raw,
-            num_lineups=int(request.form.get('num_lineups', 5)),
-            locks=request.form.getlist('player_locks'),
-            stack_team=request.form.get('stack_team'),
-            min_stack=int(request.form.get('min_stack', 5)),
-            diversity=int(request.form.get('diversity', 4))
-        )
-        status = f"SUCCESS: {len(results)} LINEUPS" if results else "FAILED"
+        return render_template('sport_mlb.html', sport="MLB", results=results, status=status,
+                               teams=sorted(df_raw['Team'].unique()),
+                               games=sorted(game_map.values(), key=lambda x: x['sort']), pool=pool_ui)
 
-    return render_template('sport_mlb.html', sport="MLB", results=results, status=status,
-                           teams=sorted(df_raw['Team'].unique()),
-                           games=sorted(game_map.values(), key=lambda x: x['sort']), pool=pool_ui)
+    return cached_view()
