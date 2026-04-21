@@ -149,7 +149,6 @@
             border: 1px solid var(--border-heavy);
         }
 
-        /* --- LINEUP CARDS --- */
         .lineup-card { background: var(--bg-card); border: 1px solid var(--border-heavy); border-radius: 4px; overflow: hidden; margin-bottom: 20px; transition: border-color 0.2s; }
         .lineup-card:hover { border-color: var(--tap-gold); }
         .lineup-header { background: var(--wood-trim); border-bottom: 2px solid var(--tap-gold); padding: 12px 15px; font-family: 'Oswald', sans-serif; }
@@ -208,9 +207,14 @@
                 </div>
 
                 <div class="mb-4">
-                    <label class="small text-uppercase text-dim d-block mb-1">Exposure (Diversity)</label>
+                    <label class="small text-uppercase text-dim d-block mb-1">Global Exposure Max %</label>
+                    <input type="number" name="global_exposure_limit" class="form-control" value="60" min="1" max="100">
+                    <small class="text-dim" style="font-size: 9px;">Cap for any single player</small>
+                </div>
+
+                <div class="mb-4">
+                    <label class="small text-uppercase text-dim d-block mb-1">Diversity (Swap Count)</label>
                     <input type="number" name="diversity" class="form-control" value="4" min="1" max="8">
-                    <small class="text-dim" style="font-size: 9px;">Change X players per lineup</small>
                 </div>
 
                 <div class="mb-4">
@@ -223,7 +227,6 @@
                         </div>
                         {% endfor %}
                     </div>
-                    <small class="text-dim" style="font-size: 9px;">Check to EXCLUDE games</small>
                 </div>
 
                 <button type="submit" class="btn btn-optimize">Pull the Tap</button>
@@ -241,6 +244,7 @@
                                 <th class="text-end">Proj</th>
                                 <th class="text-end">Salary</th>
                                 <th class="text-center">Lock</th>
+                                <th class="text-center" style="width: 100px;">Max Exp %</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -252,7 +256,7 @@
                                             <img src="{{ p.Player_Image }}"
                                                  class="player-headshot"
                                                  loading="eager"
-                                                 onerror="this.onerror=null; this.src='{{ p.Logo }}'; this.style.objectFit='contain'; this.style.padding='5px';">
+                                                 onerror="this.onerror=null; this.src='{{ p.Logo }}';">
                                             <div class="team-badge-overlay">
                                                 <img src="{{ p.Logo }}">
                                             </div>
@@ -272,7 +276,12 @@
                                 </td>
                                 <td class="text-end fw-bold text-white">{{ p.Proj }}</td>
                                 <td class="text-end fw-bold" style="color: var(--tap-gold);">${{ "{:,.0f}".format(p.Salary) }}</td>
-                                <td class="text-center"><input type="checkbox" name="player_locks" value="{{ p.Player }}" class="form-check-input"></td>
+                                <td class="text-center">
+                                    <input type="checkbox" name="player_locks" value="{{ p.Player }}" class="form-check-input">
+                                </td>
+                                <td class="text-center">
+                                    <input type="number" name="exposure_{{ p.Player }}" class="form-control form-control-sm text-center mx-auto" style="width: 65px; height: 30px; font-size: 11px;" value="100" min="0" max="100">
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -313,14 +322,7 @@
                                             <div class="d-flex align-items-center">
                                                 <img src="{{ pl.Logo }}" style="width: 14px; height: 14px; margin-right: 8px; object-fit: contain;">
                                                 <div>
-                                                    <div class="fw-bold" style="font-size: 11px; line-height: 1.1;">
-                                                        {{ pl.Name }}
-                                                        <small class="ms-1" style="color: var(--ice-blue); font-family: 'JetBrains Mono'; font-size: 9px;">
-                                                            {% if 'L' in pl.Hand|string %}LVR
-                                                            {% elif 'R' in pl.Hand|string %}RVL
-                                                            {% endif %}
-                                                        </small>
-                                                    </div>
+                                                    <div class="fw-bold" style="font-size: 11px; line-height: 1.1;">{{ pl.Name }}</div>
                                                     <div class="text-dim" style="font-size: 9px;">{{ pl.Team }}</div>
                                                 </div>
                                             </div>

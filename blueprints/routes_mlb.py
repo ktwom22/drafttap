@@ -2,7 +2,6 @@ from flask import Blueprint, render_template, request, current_app
 import pandas as pd
 import pulp
 import random
-import re
 import time
 from datetime import datetime
 import pytz
@@ -25,11 +24,11 @@ POS_ORDER = {s: i for i, s in enumerate(SLOTS)}
 
 
 def get_df_raw():
+    # ... (Keep your existing get_df_raw code exactly as is) ...
     try:
         sync_url = f"{SALARY_CSV}&t={int(time.time())}"
         df = pd.read_csv(sync_url)
         df.columns = df.columns.str.strip()
-
         for col, target in [('salary', 'Salary'), ('proj', 'Proj_Base')]:
             found = next((c for c in df.columns if col in c.lower()), None)
             if found:
@@ -37,16 +36,13 @@ def get_df_raw():
                 df[target] = df[target].fillna(0.0)
             else:
                 df[target] = 0.0
-
         if 0 < df['Salary'].max() < 1000: df['Salary'] *= 1000
         df.loc[(df['Proj_Base'] <= 0.1) & (df['Salary'] > 0), 'Proj_Base'] = 5.0
-
         order_col = next((c for c in df.columns if any(x in c.lower() for x in ['order', 'batting', 'bat  ✓'])), None)
         if order_col:
             df['Order'] = df[order_col].astype(str).str.extract('(\d+)').fillna(0).astype(int)
         else:
             df['Order'] = 0
-
         df['POS'] = df['POS'].astype(str).str.upper().fillna('UTIL')
         return df
     except Exception as e:
@@ -54,11 +50,14 @@ def get_df_raw():
         return pd.DataFrame()
 
 
-def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=5, diversity=4, excluded_games=[]):
+def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=4,
+                  diversity=4, excluded_games=[], exposure_limits={}):
     df = df_input.copy()
     df['Salary'] = pd.to_numeric(df['Salary'], errors='coerce').fillna(50000)
     df['Proj_Base'] = pd.to_numeric(df['Proj_Base'], errors='coerce').fillna(0)
-    df.loc[df['Proj_Base'] <= 0.1, 'Proj_Base'] = 2.0
+
+    # Track usage: { "Player Name": count }
+    player_usage = {name: 0 for name in df['Player'].unique()}
 
     if excluded_games:
         df = df[~df.apply(lambda r: " vs ".join(sorted([TEAM_MAP.get(str(r['Team']), str(r['Team'])),
@@ -67,39 +66,38 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
 
     all_results, used_player_indices = [], []
 
-    # --- STACK SELECTION LOGIC ---
+    # Stack Pool
     if stack_team and stack_team != "None":
-        # Force the selected team only
         top_stack_teams = [stack_team]
     else:
-        # Default to top offenses based on projection
         top_stack_teams = df[~df['POS'].str.contains('P')].groupby('Team')['Proj_Base'].nlargest(6).groupby(
             'Team').mean().sort_values(ascending=False).index.tolist()
 
     for i in range(num_lineups):
         best_lineup, highest_score = None, -1
-
-        # Shuffle candidates if no specific team is locked to ensure variety
         if not stack_team or stack_team == "None":
             random.shuffle(top_stack_teams)
 
-        for current_team in top_stack_teams[:10]:
+        for current_team in top_stack_teams[:12]:
             prob = pulp.LpProblem(f"MLB_{i}_{current_team}", pulp.LpMaximize)
             indices = df.index.tolist()
             x = pulp.LpVariable.dicts("x", (indices, SLOTS), cat="Binary")
 
-            # Apply Batting Order Multipliers
+            # Batting Order Multipliers
             def get_modified_proj(row):
                 p = row['Proj_Base']
+                # If player has hit their exposure cap, effectively remove them
+                if player_usage.get(row['Player'], 0) >= exposure_limits.get(row['Player'], num_lineups):
+                    return -1000  # Force out
+
                 if 'P' not in str(row['POS']):
                     o = row.get('Order', 0)
-                    if o > 0:
-                        if o <= 2:
-                            p *= 1.25
-                        elif o <= 5:
-                            p *= 1.15
-                        else:
-                            p *= 0.90
+                    if 1 <= o <= 2:
+                        p *= 1.25
+                    elif 3 <= o <= 5:
+                        p *= 1.15
+                    elif o > 5:
+                        p *= 0.90
                 return p
 
             modified_projs = df.apply(get_modified_proj, axis=1)
@@ -111,6 +109,8 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
             for p in indices:
                 prob += pulp.lpSum([x[p][s] for s in SLOTS]) <= 1
                 if df.loc[p, 'Player'] in locks: prob += pulp.lpSum([x[p][s] for s in SLOTS]) == 1
+
+                # Eligibility Logic
                 pos = str(df.loc[p, 'POS'])
                 for s in SLOTS:
                     valid = (s.startswith('P') and 'P' in pos) or \
@@ -122,18 +122,18 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
                             ('OF' in s and any(x in pos for x in ['OF', 'LF', 'CF', 'RF']))
                     if not valid: prob += x[p][s] == 0
 
-            # --- STACK CONSTRAINT ---
+            # Stack Constraint
             team_hitters = df[(df['Team'] == current_team) & (~df['POS'].str.contains('P'))].index.tolist()
             if len(team_hitters) >= min_stack:
                 prob += pulp.lpSum([x[p][s] for p in team_hitters for s in SLOTS if not s.startswith('P')]) == min_stack
             else:
                 continue
 
-                # --- EXPOSURE / DIVERSITY ---
+            # Diversity (Overlap)
             for past in used_player_indices:
                 prob += pulp.lpSum([x[p][s] for p in past for s in SLOTS]) <= (len(SLOTS) - diversity)
 
-            prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=2))
+            prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=1.5))
 
             if pulp.LpStatus[prob.status] == 'Optimal':
                 score = pulp.value(prob.objective)
@@ -160,7 +160,10 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
         if best_lineup:
             all_results.append(best_lineup)
             used_player_indices.append(best_lineup['indices'])
-            # Only remove team from candidates if we aren't locking a specific stack
+            # UPDATE USAGE COUNTS
+            for pl in best_lineup['players']:
+                player_usage[pl['Name']] += 1
+
             if not stack_team or stack_team == "None":
                 used_team = best_lineup['players'][2]['Team']
                 if used_team in top_stack_teams: top_stack_teams.remove(used_team)
@@ -173,6 +176,8 @@ def run_optimizer(df_input, num_lineups=1, locks=[], stack_team=None, min_stack=
 def index():
     df_raw = get_df_raw()
     if df_raw.empty: return "MLB Offline", 503
+
+    # (Existing data fetching)
     dynamic_matchup = get_prime_matchup()
     weather = get_mlb_weather_data()
     espn = get_espn_game_info()
@@ -218,20 +223,30 @@ def index():
 
     results, status = None, "MLB SYSTEMS ONLINE"
     if request.method == 'POST':
-        # Capturing form data explicitly
-        selected_stack = request.form.get('stack_team')
-        diversity_val = int(request.form.get('diversity', 4))
+        num_lineups = int(request.form.get('num_lineups', 5))
+        global_cap_pct = float(request.form.get('global_exposure_limit', 100))
+
+        # Build Exposure Limits Dictionary
+        exposure_limits = {}
+        for player_name in df_raw['Player'].unique():
+            # Check individual player input first
+            player_limit_pct = float(request.form.get(f'exposure_{player_name}', 100))
+            # Use the lower of the two: individual cap or global cap
+            final_cap_pct = min(player_limit_pct, global_cap_pct)
+            # Convert to hard count
+            exposure_limits[player_name] = max(1, int((final_cap_pct / 100) * num_lineups))
 
         results = run_optimizer(
             df_raw,
-            num_lineups=int(request.form.get('num_lineups', 5)),
+            num_lineups=num_lineups,
             locks=request.form.getlist('player_locks'),
-            stack_team=selected_stack,
-            min_stack=int(request.form.get('min_stack', 5)),
-            diversity=diversity_val,
-            excluded_games=request.form.getlist('excluded_games')
+            stack_team=request.form.get('stack_team'),
+            min_stack=int(request.form.get('min_stack', 4)),
+            diversity=int(request.form.get('diversity', 4)),
+            excluded_games=request.form.getlist('excluded_games'),
+            exposure_limits=exposure_limits
         )
-        status = f"SUCCESS: {len(results)} LINEUPS" if results else "FAILED - CHECK CONSTRAINTS"
+        status = f"SUCCESS: {len(results)} LINEUPS" if results else "FAILED - CONSTRAINTS TOO TIGHT"
 
     return render_template('sport_mlb.html', sport="MLB", results=results, pool=pool_ui,
                            games=sorted(game_map.values(), key=lambda x: x['sort']),
