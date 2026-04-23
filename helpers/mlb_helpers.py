@@ -9,6 +9,7 @@ from datetime import datetime
 
 # --- CACHE CONTROL ---
 _STATS_CACHE = {'h': None, 'p': None, 'time': 0}
+_MLB_ID_CACHE = {'data': {}, 'time': 0}
 
 TEAM_MAP = {
     "CHW": "CWS", "CHA": "CWS", "CWS": "CWS", "WSH": "WAS", "WAS": "WAS", "Washington": "WAS",
@@ -53,18 +54,57 @@ def normalize_name(name):
 def get_logo_url(team_abbr):
     clean_abbr = TEAM_MAP.get(team_abbr, team_abbr)
     tid = TEAM_ID_MAP.get(clean_abbr)
-    # Using 'team-cap-on-light' ensures it looks clean in the small white badge
+    # Using 'team-cap-on-light' for the white badge background in your UI
     return f"https://www.mlbstatic.com/team-logos/team-cap-on-light/{tid}.svg" if tid else "https://www.mlbstatic.com/team-logos/league/1.svg"
 
 
-def get_player_headshot_url(mlb_id):
-    """Returns a high-res MLB headshot with a reliable silhouette fallback."""
-    # If ID is missing or 0, return the official MLB gray silhouette
-    if not mlb_id or str(mlb_id) == "0":
+def get_dynamic_mlb_espn_ids():
+    """Fetches all active MLB players from ESPN and caches them for 12 hours."""
+    global _MLB_ID_CACHE
+    if _MLB_ID_CACHE['data'] and (time.time() - _MLB_ID_CACHE['time']) < 43200:
+        return _MLB_ID_CACHE['data']
+
+    id_map = {}
+    try:
+        teams_url = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams?limit=100"
+        teams_data = requests.get(teams_url, timeout=5).json()
+        teams_list = teams_data.get('sports', [{}])[0].get('leagues', [{}])[0].get('teams', [])
+
+        for team_entry in teams_list:
+            team_id = team_entry['team']['id']
+            roster_url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}/roster"
+            roster_data = requests.get(roster_url, timeout=5).json()
+            for athlete in roster_data.get('athletes', []):
+                name = athlete.get('displayName')
+                athlete_id = athlete.get('id')
+                if name and athlete_id:
+                    id_map[name] = str(athlete_id)
+
+        _MLB_ID_CACHE = {'data': id_map, 'time': time.time()}
+    except Exception as e:
+        print(f"Error fetching dynamic MLB ESPN IDs: {e}")
+    return id_map
+
+
+def get_player_headshot_url(player_id_or_name):
+    """
+    Returns a high-res MLB headshot. If a name is passed, it looks up the
+    dynamic ESPN ID first. Defaults to silhouette if not found.
+    """
+    # If it looks like a name (contains space or no digits), try dynamic lookup
+    if isinstance(player_id_or_name, str) and (not player_id_or_name.isdigit()):
+        id_map = get_dynamic_mlb_espn_ids()
+        espn_id = id_map.get(player_id_or_name, "0")
+        if espn_id != "0":
+            return f"https://a.espncdn.com/i/headshots/mlb/players/full/{espn_id}.png"
+
+    # Standard MLB ID Fallback
+    if not player_id_or_name or str(player_id_or_name) == "0":
         return "https://midas.mlbstatic.com/v1/people/0/headshot/67/current"
 
-    # Use the 'best' quality auto-formatting URL to prevent flickering on load
-    return f"https://img.mlbstatic.com/mlb-photos/player/headshot/67/current/{mlb_id}.png"
+    return f"https://img.mlbstatic.com/mlb-photos/player/headshot/67/current/{player_id_or_name}.png"
+
+
 # --- DATA FETCHING ---
 
 def fetch_pitcher_metrics(year):
@@ -161,7 +201,6 @@ def get_weighted_stats():
 
 def get_mlb_weather_data():
     weather_map = {}
-    # Internal map to normalize MLB API names to abbreviations
     api_to_abbr = {v: k for k, v in {
         "ARI": "Arizona Diamondbacks", "ATL": "Atlanta Braves", "BAL": "Baltimore Orioles",
         "BOS": "Boston Red Sox", "CHC": "Chicago Cubs", "CWS": "Chicago White Sox", "CIN": "Cincinnati Reds",
