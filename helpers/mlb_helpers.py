@@ -61,28 +61,52 @@ def get_logo_url(team_abbr):
 def get_dynamic_mlb_espn_ids():
     """Fetches all active MLB players from ESPN and caches them for 12 hours."""
     global _MLB_ID_CACHE
+
+    # Check cache first to avoid unnecessary network calls
     if _MLB_ID_CACHE['data'] and (time.time() - _MLB_ID_CACHE['time']) < 43200:
         return _MLB_ID_CACHE['data']
 
     id_map = {}
+
+    # Use a Session for connection pooling - this is critical for Railway performance
+    session = requests.Session()
+
     try:
+        # Step 1: Get the list of all MLB teams
         teams_url = "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams?limit=100"
-        teams_data = requests.get(teams_url, timeout=5).json()
+        response = session.get(teams_url, timeout=5)
+        response.raise_for_status()
+        teams_data = response.json()
+
         teams_list = teams_data.get('sports', [{}])[0].get('leagues', [{}])[0].get('teams', [])
 
+        # Step 2: Iterate through each team and fetch their specific roster
         for team_entry in teams_list:
-            team_id = team_entry['team']['id']
-            roster_url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}/roster"
-            roster_data = requests.get(roster_url, timeout=5).json()
-            for athlete in roster_data.get('athletes', []):
-                name = athlete.get('displayName')
-                athlete_id = athlete.get('id')
-                if name and athlete_id:
-                    id_map[name] = str(athlete_id)
+            try:
+                team_id = team_entry['team']['id']
+                roster_url = f"https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams/{team_id}/roster"
 
-        _MLB_ID_CACHE = {'data': id_map, 'time': time.time()}
+                # Keep timeout tight (3s) so one slow team doesn't hang the entire app boot
+                roster_response = session.get(roster_url, timeout=3)
+                roster_data = roster_response.json()
+
+                for athlete in roster_data.get('athletes', []):
+                    name = athlete.get('displayName')
+                    athlete_id = athlete.get('id')
+                    if name and athlete_id:
+                        id_map[name] = str(athlete_id)
+
+            except Exception as team_e:
+                print(f"Error fetching roster for team {team_id}: {team_e}")
+                continue
+
+        # Update global cache if we successfully pulled data
+        if id_map:
+            _MLB_ID_CACHE = {'data': id_map, 'time': time.time()}
+
     except Exception as e:
-        print(f"Error fetching dynamic MLB ESPN IDs: {e}")
+        print(f"Critical error in get_dynamic_mlb_espn_ids: {e}")
+
     return id_map
 
 
@@ -289,8 +313,6 @@ def get_mlb_matchup_info(row, game_info, weather_map):
 
     return f"{time_str} @ {venue} | {temp}° {cond}"
 
-
-# --- SEO & AUTOMATION HELPERS ---
 
 def get_prime_matchup():
     try:
